@@ -779,7 +779,14 @@
         function getStudentInfo(qrCode) {
             const currentPeriod = getCurrentPeriodStudents();
             
+            console.log('🔍 getStudentInfo called:');
+            console.log('  QR Code:', qrCode);
+            console.log('  Active Schedule Type:', activeScheduleType);
+            console.log('  Active Start Type:', activeStartType);
+            console.log('  Current Period:', currentPeriod);
+            
             if (!currentPeriod) {
+                console.log('❌ No active period found');
                 return {
                     error: 'No active class period right now',
                     periodName: null,
@@ -791,6 +798,8 @@
             const studentName = currentPeriod.students[qrCode];
             
             if (!studentName) {
+                console.log('❌ QR code not registered for this period');
+                console.log('  Available QR codes:', Object.keys(currentPeriod.students));
                 return {
                     error: 'QR code not registered for this period',
                     periodName: currentPeriod.periodName,
@@ -802,6 +811,12 @@
             // Create unique ID with start type support
             const periodSuffix = currentPeriod.periodName.replace(/\s+/g, '_');
 			const uniqueId = `${activeScheduleType}_${activeStartType}_${qrCode}_${periodSuffix}`;
+            
+            console.log('✅ Student found:');
+            console.log('  Student Name:', studentName);
+            console.log('  Period Suffix:', periodSuffix);
+            console.log('  Generated Unique ID:', uniqueId);
+            console.log('  Schedule:', activeSchedule);
             
             return {
                 error: null,
@@ -938,16 +953,19 @@
         // SCAN PROCESSING
         // ====================================
         async function processStudentScan(qrCode) {
+            console.log('\n🎯 ===== NEW SCAN ATTEMPT =====');
+            console.log('Scanned QR Code:', qrCode);
+            
             // Prevent overlapping scan processing
             if (isProcessingScan) {
-                console.log('Already processing a scan, ignoring...');
+                console.log('⏸️ Already processing a scan, ignoring...');
                 return;
             }
             
             // Debounce check - prevent same QR code from triggering multiple times rapidly
             const now = Date.now();
             if (lastScannedCode === qrCode && (now - lastScannedTime < scanDebounce)) {
-                console.log('Debounced: Same QR code scanned too quickly');
+                console.log('⏸️ Debounced: Same QR code scanned too quickly');
                 return; // Ignore this scan
             }
             
@@ -963,6 +981,7 @@
             
             // Check for errors (no active period or unknown QR code)
             if (studentInfo.error) {
+                console.log('❌ Error:', studentInfo.error);
                 playErrorBuzz();
                 showError(studentInfo.error);
                 isProcessingScan = false; // Clear flag before returning
@@ -971,19 +990,24 @@
 
             // Check cooldown - Stay silent during the 5-second buffer
             if (lastScanTimes[studentInfo.uniqueId] && (now - lastScanTimes[studentInfo.uniqueId] < cooldownPeriod)) {
+                console.log('⏸️ Cooldown active for this student');
                 isProcessingScan = false; // Clear flag before returning
                 return; // Do nothing, just exit the function
             }
 
             try {
+                console.log('📡 Checking Firebase for student:', studentInfo.uniqueId);
                 const studentRef = database.ref('students/' + studentInfo.uniqueId);
                 const snapshot = await studentRef.once('value');
                 const currentData = snapshot.val();
+                
+                console.log('📊 Current Firebase data:', currentData);
                 
                 let newStatus;
                 if (!currentData || currentData.status === 'in') {
                     // Student is currently IN, mark them OUT
                     newStatus = 'out';
+                    console.log('✏️ Marking student OUT');
                     await studentRef.set({
                         name: studentInfo.studentName,
                         qrCode: studentInfo.qrCode,
@@ -996,6 +1020,7 @@
                     
                     // Log the "out" event
                     await logEvent(studentInfo, 'out', Date.now(), null, null);
+                    console.log('✅ Student marked OUT successfully');
                     
                 } else {
                     // Student is currently OUT, mark them IN
@@ -1003,6 +1028,11 @@
                     const outTime = currentData.outTimestamp || currentData.timestamp;
                     const inTime = Date.now();
                     const duration = outTime ? (inTime - outTime) : null;
+                    
+                    console.log('✏️ Marking student IN');
+                    console.log('  Out Time:', outTime);
+                    console.log('  In Time:', inTime);
+                    console.log('  Duration (ms):', duration);
                     
                     await studentRef.set({
                         name: studentInfo.studentName,
@@ -1016,6 +1046,7 @@
                     
                     // Log the "in" event with duration
                     await logEvent(studentInfo, 'in', outTime, inTime, duration);
+                    console.log('✅ Student marked IN successfully');
                 }
 
                 // Update cooldown tracker
@@ -1024,9 +1055,11 @@
                 // Provide feedback
                 playSuccessBeep();
                 showStatus(studentInfo.uniqueId, newStatus);
+                
+                console.log('✅ ===== SCAN COMPLETE =====\n');
 
             } catch (error) {
-                console.error('Error updating student:', error);
+                console.error('❌ Error updating student:', error);
                 playErrorBuzz();
                 showError('Database error - please try again');
             } finally {
