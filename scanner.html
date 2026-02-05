@@ -631,7 +631,7 @@
         // ====================================
         // COOLDOWN TRACKING
         // ====================================
-        const cooldownPeriod = 30000; // 30 seconds in milliseconds
+        const cooldownPeriod = 5000; // 5 seconds in milliseconds
         const lastScanTimes = {};
 
         // ====================================
@@ -732,13 +732,10 @@
                 return;
             }
 
-            // Check cooldown (use unique ID for cooldown tracking)
+            // Check cooldown - Stay silent during the 5-second buffer
             const now = Date.now();
             if (lastScanTimes[studentInfo.uniqueId] && (now - lastScanTimes[studentInfo.uniqueId] < cooldownPeriod)) {
-                playErrorBuzz();
-                const remainingSeconds = Math.ceil((cooldownPeriod - (now - lastScanTimes[studentInfo.uniqueId])) / 1000);
-                showError(`Please wait ${remainingSeconds} seconds before scanning again`);
-                return;
+                return; // Do nothing, just exit the function
             }
 
             try {
