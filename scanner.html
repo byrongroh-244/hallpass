@@ -423,14 +423,12 @@
 		        ]
 		    }
 		};
-        // Current active schedule (will be set by user selection)
-        let activeSchedule = null;
-        let classSchedule = [];
 
         // ====================================
         // SCHEDULE SELECTION FUNCTIONS
         // ====================================
-        // 3. Updated Two-Step Selection Logic
+       
+		// 3. Updated Two-Step Selection Logic
 		function setDayType(color) {
 			selectedDayColor = color;
 			document.getElementById('step1').style.display = 'none';
@@ -446,38 +444,14 @@
 			localStorage.setItem('selectedTiming', timing);
 			
 			document.getElementById('scheduleModal').style.display = 'none';
-			if (typeof updateScheduleIndicator === "function") updateScheduleIndicator();
-			if (typeof startScanner === "function") startScanner();
-			if (typeof updatePeriodInfo === "function") updatePeriodInfo();
+			updateScheduleIndicator();
+			startScanner();
 		}
-
-        function updateScheduleIndicator() {
-            const indicator = document.getElementById('scheduleIndicator');
-            const displayText = document.getElementById('currentScheduleDisplay');
-            
-            if (activeSchedule === 'red') {
-                indicator.textContent = '🔴 Red Day';
-                indicator.className = 'schedule-indicator red';
-                if (displayText) {
-                    displayText.textContent = '🔴 Red Day';
-                    displayText.className = 'current-schedule-value red';
-                }
-            } else if (activeSchedule === 'black') {
-                indicator.textContent = '⚫ Black Day';
-                indicator.className = 'schedule-indicator black';
-                if (displayText) {
-                    displayText.textContent = '⚫ Black Day';
-                    displayText.className = 'current-schedule-value black';
-                }
-            }
-        }
-
-        function changeSchedule() {
-            // Show modal again
-            document.getElementById('scheduleModal').style.display = 'flex';
-            closeHiddenMenu();
-        }
-
+		
+		function resetSelection() {
+			document.getElementById('step1').style.display = 'block';
+			document.getElementById('step2').style.display = 'none';
+		}
         // ====================================
         // TRIPLE-TAP MENU FUNCTIONS
         // ====================================
@@ -885,3 +859,5 @@
     </script>
 </body>
 </html>
+
+
