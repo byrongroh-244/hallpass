@@ -452,7 +452,7 @@
                         'qr_02': 'Student 2',
                         'qr_03': 'Student 3',
                         'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',,
+                        'qr_05': 'Student 5',
                     }
                 },
             ],
@@ -805,7 +805,7 @@
             let outCount = 0;
 
             Object.keys(expectedStudents).forEach(qrCode => {
-                const studentId = `${schedulePrefix}${qrCode}_${periodSuffix}`;
+                const studentId = \`${schedulePrefix}${qrCode}_${periodSuffix}`;
                 
                 const record = firebaseData[studentId] || {
                     name: expectedStudents[qrCode],
