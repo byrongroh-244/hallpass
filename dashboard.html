@@ -385,30 +385,6 @@
         // ====================================
         // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
         // ====================================
-        // This should EXACTLY match the schedule in scanner.html
-    
-		<div class="modal-overlay" id="scheduleModal">
-    <div class="modal-content">
-        <div id="step1">
-            <h2>🗓️ Select Day</h2>
-            <p>Which day color are you viewing?</p>
-            <div class="schedule-buttons">
-                <button class="schedule-button red" onclick="setDayType('red')">🔴 Red Day</button>
-                <button class="schedule-button black" onclick="setDayType('black')">⚫ Black Day</button>
-            </div>
-        </div>
-        <div id="step2" style="display: none;">
-            <h2>⏰ Select Timing</h2>
-            <p>Is today a regular day or Wednesday delayed start?</p>
-            <div class="schedule-buttons" style="flex-direction: column;">
-                <button class="schedule-button" style="background: #4f46e5; color: white; margin-bottom: 10px;" onclick="finalizeSchedule('regular')">Regular Schedule</button>
-                <button class="schedule-button" style="background: #fbbf24; color: black;" onclick="finalizeSchedule('wednesday')">Wednesday (Delayed)</button>
-            </div>
-            <button onclick="resetSelection()" style="margin-top: 15px; background: none; border: none; color: #6b7280; cursor: pointer;">← Go Back</button>
-        </div>
-    </div>
-</div>
-
 
 const schedules = {
     red: {
