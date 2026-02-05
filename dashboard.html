@@ -688,77 +688,61 @@
         setInterval(updatePeriodInfo, 60000);
         updatePeriodInfo();
 
-        // ====================================
+
+    // ====================================
         // FIREBASE LISTENERS
         // ====================================
         const studentsRef = database.ref('students');
 
         studentsRef.on('value', (snapshot) => {
-            if (!activeSchedule) return; // Wait for schedule selection
+            if (!activeSchedule) return; 
             
-            const students = snapshot.val();
+            const firebaseData = snapshot.val() || {};
             const grid = document.getElementById('studentsGrid');
             const currentPeriod = getCurrentPeriod();
 
-            if (!students || Object.keys(students).length === 0) {
-                grid.innerHTML = '<div class="no-students">No students registered yet</div>';
+            if (!currentPeriod) {
+                grid.innerHTML = `<div class="no-students">No active class period for ${activeSchedule === 'red' ? '🔴 Red Day' : '⚫ Black Day'}</div>`;
                 updateStats({});
                 return;
             }
 
-            // Filter students to only show current schedule and period
-            let filteredStudents = {};
-            if (currentPeriod) {
-                const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
-                const schedulePrefix = activeSchedule + '_';
+            const expectedStudents = currentPeriod.students; 
+            const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
+            const schedulePrefix = activeSchedule + '_';
+
+            let displayStudents = {};
+            let inCount = 0;
+            let outCount = 0;
+
+            Object.keys(expectedStudents).forEach(qrCode => {
+                const studentId = `${schedulePrefix}${qrCode}_${periodSuffix}`;
                 
-                filteredStudents = Object.keys(students)
-                    .filter(key => key.startsWith(schedulePrefix) && key.includes(periodSuffix))
-                    .reduce((obj, key) => {
-                        obj[key] = students[key];
-                        return obj;
-                    }, {});
-            } else {
-                // If no active period, show all students from the active schedule
-                const schedulePrefix = activeSchedule + '_';
-                filteredStudents = Object.keys(students)
-                    .filter(key => key.startsWith(schedulePrefix))
-                    .reduce((obj, key) => {
-                        obj[key] = students[key];
-                        return obj;
-                    }, {});
-            }
+                const record = firebaseData[studentId] || {
+                    name: expectedStudents[qrCode],
+                    status: 'in',
+                    qrCode: qrCode,
+                    period: currentPeriod.name,
+                    schedule: activeSchedule,
+                    timestamp: null
+                };
 
-            // Clear "loading" message
-            const noStudentsMsg = grid.querySelector('.no-students');
-            if (noStudentsMsg) {
-                noStudentsMsg.remove();
-            }
+                displayStudents[studentId] = record;
+                if (record.status === 'in') inCount++;
+                else outCount++;
+            });
 
-            // If no students for current period
-            if (Object.keys(filteredStudents).length === 0) {
-                const scheduleLabel = activeSchedule === 'red' ? '🔴 Red Day' : '⚫ Black Day';
-                grid.innerHTML = currentPeriod 
-                    ? `<div class="no-students">No students have checked in for ${currentPeriod.name} (${scheduleLabel}) yet</div>`
-                    : `<div class="no-students">No active class period for ${scheduleLabel}</div>`;
-                updateStats({});
-                return;
-            }
+            document.getElementById('inCount').textContent = inCount;
+            document.getElementById('outCount').textContent = outCount;
+            document.getElementById('totalCount').textContent = inCount + outCount;
 
-            // Update stats
-            updateStats(filteredStudents);
-
-            // Clear existing cards
             grid.innerHTML = '';
-
-            // Render all student cards for current period
-            Object.keys(filteredStudents).forEach(studentId => {
-                const card = createStudentCard(studentId, filteredStudents[studentId]);
+            Object.keys(displayStudents).forEach(studentId => {
+                const card = createStudentCard(studentId, displayStudents[studentId]);
                 grid.appendChild(card);
                 
-                // Start timer if student is out
-                if (filteredStudents[studentId].status === 'out' && filteredStudents[studentId].timestamp) {
-                    startTimer(studentId, filteredStudents[studentId].timestamp);
+                if (displayStudents[studentId].status === 'out' && displayStudents[studentId].timestamp) {
+                    startTimer(studentId, displayStudents[studentId].timestamp);
                 }
             });
         });
@@ -766,17 +750,13 @@
         // Check if schedule was previously selected
         window.addEventListener('load', () => {
             const savedSchedule = localStorage.getItem('dashboardSchedule');
-            
             if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
-                // Auto-select saved schedule
                 selectSchedule(savedSchedule);
             } else {
-                // Show selection modal
                 document.getElementById('scheduleModal').style.display = 'flex';
             }
         });
 
-        // Make resetStudent and selectSchedule functions globally available
         window.resetStudent = resetStudent;
         window.selectSchedule = selectSchedule;
     </script>
