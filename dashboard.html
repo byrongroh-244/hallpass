@@ -908,7 +908,7 @@
 
             const lastUpdated = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Unknown';
             const parts = studentId.split('_');
-			const qrCode = data.qrCode || parts[1] + '_' + parts[2];
+			const qrCode = data.qrCode || parts[2] + '_' + parts[3];
             const period = data.period || 'Unknown Period';
 
             card.innerHTML = `
@@ -1019,14 +1019,7 @@
             const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
             
             // Build prefix with start type support
-            let schedulePrefix;
-            if (schedules[activeScheduleType] && schedules[activeScheduleType].regular) {
-                // New structure with late start
-                schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
-            } else {
-                // Old structure (backward compatible)
-                schedulePrefix = `${activeScheduleType}_`;
-            }
+          const schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
 
             let displayStudents = {};
             let inCount = 0;
