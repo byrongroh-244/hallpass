@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Analytics</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f3f4f6;
+            padding: 30px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1f2937;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .date-filter {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .date-filter label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .date-filter input, .date-filter select {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .date-filter button {
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            align-self: flex-end;
+        }
+        
+        .date-filter button:hover {
+            background: #4338ca;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            font-size: 14px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .stat-card .subtext {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            text-align: left;
+            padding: 12px;
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .export-button {
+            padding: 12px 24px;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        .export-button:hover {
+            background: #047857;
+        }
+        
+        .schedule-selector {
+            display: inline-flex;
+            gap: 10px;
+            background: #f3f4f6;
+            padding: 5px;
+            border-radius: 10px;
+            margin-left: 15px;
+        }
+        
+        .schedule-option {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: #6b7280;
+        }
+        
+        .schedule-option.active.red {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .schedule-option.active.black {
+            background: #1f2937;
+            color: white;
+        }
+        
+        .period-filter {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .period-chip {
+            padding: 8px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            color: #6b7280;
+        }
+        
+        .period-chip.active {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: white;
+        }
+        
+        .period-chip:hover {
+            border-color: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h1>📊 Student Analytics</h1>
+            <div class="schedule-selector">
+                <button class="schedule-option" id="redOption" onclick="selectSchedule('red')">🔴 Red Day</button>
+                <button class="schedule-option" id="blackOption" onclick="selectSchedule('black')">⚫ Black Day</button>
+                <button class="schedule-option" id="bothOption" onclick="selectSchedule('both')">📅 Both</button>
+            </div>
+        </div>
+        
+        <div class="date-filter">
+            <label>
+                <span>Start Date:</span>
+                <input type="date" id="startDate">
+            </label>
+            <label>
+                <span>End Date:</span>
+                <input type="date" id="endDate">
+            </label>
+            <label>
+                <span>Quick Select:</span>
+                <select id="quickSelect" onchange="applyQuickFilter()">
+                    <option value="">Custom</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="2weeks" selected>Last 2 Weeks</option>
+                    <option value="month">This Month</option>
+                </select>
+            </label>
+            <button onclick="loadAnalytics()">🔄 Refresh</button>
+            <button class="export-button" onclick="exportToCSV()">📥 Export CSV</button>
+        </div>
+        
+        <div class="period-filter" id="periodFilter" style="display: none;"></div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Time Out</h3>
+            <div class="value" id="totalTime">--</div>
+            <div class="subtext">All students combined</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Average Per Student</h3>
+            <div class="value" id="avgPerStudent">--</div>
+            <div class="subtext">Rolling 2-week average</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Daily Average</h3>
+            <div class="value" id="dailyAvg">--</div>
+            <div class="subtext">Per day in selected range</div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Total Exits</h3>
+            <div class="value" id="totalExits">--</div>
+            <div class="subtext">Number of trips out</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Student Breakdown</h2>
+        <div id="studentTable" class="loading">Loading data...</div>
+    </div>
+
+    <div class="section">
+        <h2>📅 Daily Summary</h2>
+        <div id="dailyTable" class="loading">Loading data...</div>
+    </div>
+
+    <script>
+        // REPLACE WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let activeSchedule = 'both';
+        let selectedPeriods = new Set();
+        let allLogs = [];
+
+        function selectSchedule(schedule) {
+            activeSchedule = schedule;
+            localStorage.setItem('analyticsSchedule', schedule);
+            
+            document.getElementById('redOption').classList.remove('active', 'red');
+            document.getElementById('blackOption').classList.remove('active', 'black');
+            document.getElementById('bothOption').classList.remove('active', 'red', 'black');
+            
+            if (schedule === 'red') {
+                document.getElementById('redOption').classList.add('active', 'red');
+            } else if (schedule === 'black') {
+                document.getElementById('blackOption').classList.add('active', 'black');
+            } else {
+                document.getElementById('bothOption').classList.add('active', 'red');
+            }
+            
+            loadAnalytics();
+        }
+
+        function applyQuickFilter() {
+            const select = document.getElementById('quickSelect');
+            const value = select.value;
+            const endDate = new Date();
+            let startDate = new Date();
+            
+            switch(value) {
+                case 'today':
+                    startDate = new Date();
+                    break;
+                case 'week':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '2weeks':
+                    startDate.setDate(endDate.getDate() - 14);
+                    break;
+                case 'month':
+                    startDate.setMonth(endDate.getMonth() - 1);
+                    break;
+                default:
+                    return;
+            }
+            
+            document.getElementById('startDate').valueAsDate = startDate;
+            document.getElementById('endDate').valueAsDate = endDate;
+            loadAnalytics();
+        }
+
+        function formatDuration(ms) {
+            if (!ms) return '0m';
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            if (minutes === 0) return `${seconds}s`;
+            return `${minutes}m ${seconds}s`;
+        }
+
+        function formatDurationHours(ms) {
+            if (!ms) return '0m';
+            const hours = Math.floor(ms / 3600000);
+            const minutes = Math.floor((ms % 3600000) / 60000);
+            if (hours === 0) return `${minutes}m`;
+            return `${hours}h ${minutes}m`;
+        }
+
+        async function loadAnalytics() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            try {
+                const snapshot = await database.ref('logs').once('value');
+                const logs = snapshot.val() || {};
+                allLogs = Object.values(logs);
+                
+                // Filter by date range
+                const filtered = allLogs.filter(log => {
+                    if (!log.date) return false;
+                    return log.date >= startDate && log.date <= endDate;
+                });
+                
+                // Filter by schedule
+                const scheduleFiltered = filtered.filter(log => {
+                    if (activeSchedule === 'both') return true;
+                    return log.schedule === activeSchedule;
+                });
+                
+                // Get unique periods for filter
+                const periods = [...new Set(scheduleFiltered.map(log => log.period))];
+                if (selectedPeriods.size === 0) {
+                    periods.forEach(p => selectedPeriods.add(p));
+                }
+                updatePeriodFilter(periods);
+                
+                // Filter by selected periods
+                const finalFiltered = scheduleFiltered.filter(log => selectedPeriods.has(log.period));
+                
+                // Calculate statistics
+                calculateStats(finalFiltered);
+                generateStudentTable(finalFiltered);
+                generateDailyTable(finalFiltered);
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                alert('Error loading data. Please try again.');
+            }
+        }
+
+        function updatePeriodFilter(periods) {
+            const filterDiv = document.getElementById('periodFilter');
+            if (periods.length === 0) {
+                filterDiv.style.display = 'none';
+                return;
+            }
+            
+            filterDiv.style.display = 'flex';
+            filterDiv.innerHTML = '<span style="font-weight: 600; padding: 8px 0;">Periods:</span>';
+            
+            periods.sort().forEach(period => {
+                const chip = document.createElement('button');
+                chip.className = 'period-chip' + (selectedPeriods.has(period) ? ' active' : '');
+                chip.textContent = period;
+                chip.onclick = () => {
+                    if (selectedPeriods.has(period)) {
+                        selectedPeriods.delete(period);
+                        chip.classList.remove('active');
+                    } else {
+                        selectedPeriods.add(period);
+                        chip.classList.add('active');
+                    }
+                    loadAnalytics();
+                };
+                filterDiv.appendChild(chip);
+            });
+        }
+
+        function calculateStats(logs) {
+            // Only count completed trips (action: 'in', 'auto-reset', or 'manual-reset')
+            const completedTrips = logs.filter(log => 
+                log.action === 'in' || log.action === 'auto-reset' || log.action === 'manual-reset'
+            );
+            
+            const totalTime = completedTrips.reduce((sum, log) => sum + (log.duration || 0), 0);
+            const totalExits = completedTrips.length;
+            
+            // Calculate unique students
+            const students = new Set(completedTrips.map(log => log.studentName));
+            const uniqueStudents = students.size;
+            
+            // Calculate date range
+            const dates = new Set(logs.map(log => log.date));
+            const numDays = dates.size || 1;
+            
+            // Calculate 2-week rolling average per student
+            const avgPerStudent = uniqueStudents > 0 ? totalTime / uniqueStudents : 0;
+            const dailyAvg = totalTime / numDays;
+            
+            document.getElementById('totalTime').textContent = formatDurationHours(totalTime);
+            document.getElementById('avgPerStudent').textContent = formatDurationHours(avgPerStudent);
+            document.getElementById('dailyAvg').textContent = formatDurationHours(dailyAvg);
+            document.getElementById('totalExits').textContent = totalExits;
+        }
+
+        function generateStudentTable(logs) {
+            const completedTrips = logs.filter(log => 
+                log.action === 'in' || log.action === 'auto-reset' || log.action === 'manual-reset'
+            );
+            
+            // Group by student
+            const studentData = {};
+            completedTrips.forEach(log => {
+                if (!studentData[log.studentName]) {
+                    studentData[log.studentName] = {
+                        name: log.studentName,
+                        totalTime: 0,
+                        trips: 0,
+                        autoResets: 0,
+                        manualResets: 0
+                    };
+                }
+                studentData[log.studentName].totalTime += log.duration || 0;
+                studentData[log.studentName].trips++;
+                if (log.action === 'auto-reset') studentData[log.studentName].autoResets++;
+                if (log.action === 'manual-reset') studentData[log.studentName].manualResets++;
+            });
+            
+            // Sort by total time
+            const sorted = Object.values(studentData).sort((a, b) => b.totalTime - a.totalTime);
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Total Time Out</th>
+                            <th>Trips</th>
+                            <th>Avg Per Trip</th>
+                            <th>Forgot to Scan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            sorted.forEach(student => {
+                const avgPerTrip = student.trips > 0 ? student.totalTime / student.trips : 0;
+                html += `
+                    <tr>
+                        <td><strong>${student.name}</strong></td>
+                        <td>${formatDurationHours(student.totalTime)}</td>
+                        <td>${student.trips}</td>
+                        <td>${formatDuration(avgPerTrip)}</td>
+                        <td>${student.autoResets + student.manualResets}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('studentTable').innerHTML = html;
+        }
+
+        function generateDailyTable(logs) {
+            const completedTrips = logs.filter(log => 
+                log.action === 'in' || log.action === 'auto-reset' || log.action === 'manual-reset'
+            );
+            
+            // Group by date
+            const dailyData = {};
+            completedTrips.forEach(log => {
+                if (!dailyData[log.date]) {
+                    dailyData[log.date] = {
+                        date: log.date,
+                        totalTime: 0,
+                        trips: 0,
+                        students: new Set()
+                    };
+                }
+                dailyData[log.date].totalTime += log.duration || 0;
+                dailyData[log.date].trips++;
+                dailyData[log.date].students.add(log.studentName);
+            });
+            
+            // Sort by date
+            const sorted = Object.values(dailyData).sort((a, b) => b.date.localeCompare(a.date));
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Total Time</th>
+                            <th>Total Trips</th>
+                            <th>Students</th>
+                            <th>Avg Per Student</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            sorted.forEach(day => {
+                const avgPerStudent = day.students.size > 0 ? day.totalTime / day.students.size : 0;
+                const dateObj = new Date(day.date);
+                const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                
+                html += `
+                    <tr>
+                        <td><strong>${dateStr}</strong></td>
+                        <td>${formatDurationHours(day.totalTime)}</td>
+                        <td>${day.trips}</td>
+                        <td>${day.students.size}</td>
+                        <td>${formatDuration(avgPerStudent)}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('dailyTable').innerHTML = html;
+        }
+
+        function exportToCSV() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            const filtered = allLogs.filter(log => {
+                if (!log.date) return false;
+                const inRange = log.date >= startDate && log.date <= endDate;
+                const scheduleMatch = activeSchedule === 'both' || log.schedule === activeSchedule;
+                const periodMatch = selectedPeriods.has(log.period);
+                return inRange && scheduleMatch && periodMatch;
+            });
+            
+            let csv = 'Date,Student,QR Code,Period,Schedule,Action,Duration (minutes)\n';
+            
+            filtered.forEach(log => {
+                const duration = log.duration ? (log.duration / 60000).toFixed(2) : '0';
+                csv += `${log.date},${log.studentName},${log.qrCode},${log.period},${log.schedule},${log.action},${duration}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `student-analytics-${startDate}-to-${endDate}.csv`;
+            a.click();
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            // Set default dates (last 2 weeks)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 14);
+            
+            document.getElementById('startDate').valueAsDate = startDate;
+            document.getElementById('endDate').valueAsDate = endDate;
+            
+            // Load saved schedule preference
+            const savedSchedule = localStorage.getItem('analyticsSchedule') || 'both';
+            selectSchedule(savedSchedule);
+        });
+
+        window.selectSchedule = selectSchedule;
+    </script>
+</body>
+</html>
