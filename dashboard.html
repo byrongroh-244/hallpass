@@ -578,14 +578,127 @@
         }
 
         // ====================================
+        // AUTO-RESET AT PERIOD END
+        // ====================================
+        let lastCheckedPeriod = null;
+
+        async function checkAndAutoReset() {
+            if (!activeSchedule || !classSchedule) return;
+            
+            const currentPeriod = getCurrentPeriod();
+            
+            // Period just ended (went from having a period to no period)
+            if (lastCheckedPeriod && !currentPeriod) {
+                console.log(`Period ended: ${lastCheckedPeriod.name}. Auto-resetting students...`);
+                await autoResetStudentsFromPeriod(lastCheckedPeriod);
+            }
+            
+            lastCheckedPeriod = currentPeriod;
+        }
+
+        async function autoResetStudentsFromPeriod(period) {
+            try {
+                const snapshot = await database.ref('students').once('value');
+                const students = snapshot.val() || {};
+                
+                const periodSuffix = period.name.replace(/\s+/g, '_');
+                const schedulePrefix = activeSchedule + '_';
+                
+                // Find all students from that period who are still "out"
+                const updates = {};
+                const logPromises = [];
+                
+                for (const [studentId, data] of Object.entries(students)) {
+                    if (studentId.startsWith(schedulePrefix) && 
+                        studentId.endsWith(periodSuffix) && 
+                        data.status === 'out') {
+                        
+                        const outTime = data.outTimestamp || data.timestamp;
+                        const inTime = Date.now();
+                        const duration = outTime ? (inTime - outTime) : null;
+                        
+                        // Update student to "in"
+                        updates[`students/${studentId}`] = {
+                            ...data,
+                            status: 'in',
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            outTimestamp: null
+                        };
+                        
+                        // Log the auto-reset event
+                        const logRef = database.ref('logs').push();
+                        logPromises.push(logRef.set({
+                            studentName: data.name,
+                            qrCode: data.qrCode,
+                            period: data.period,
+                            schedule: data.schedule,
+                            action: 'auto-reset',
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            date: new Date().toISOString().split('T')[0],
+                            outTime: outTime,
+                            inTime: inTime,
+                            duration: duration
+                        }));
+                    }
+                }
+                
+                // Perform all updates
+                if (Object.keys(updates).length > 0) {
+                    await database.ref().update(updates);
+                    await Promise.all(logPromises);
+                    console.log(`Auto-reset completed for ${Object.keys(updates).length} students`);
+                }
+                
+            } catch (error) {
+                console.error('Error auto-resetting students:', error);
+            }
+        }
+
+        // Check every 30 seconds for period changes
+        setInterval(checkAndAutoReset, 30000);
+        checkAndAutoReset(); // Initial check
+
+        // ====================================
         // RESET FUNCTION
         // ====================================
         async function resetStudent(studentId) {
             try {
-                await database.ref('students/' + studentId).update({
-                    status: 'in',
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
+                const snapshot = await database.ref('students/' + studentId).once('value');
+                const data = snapshot.val();
+                
+                if (data && data.status === 'out') {
+                    const outTime = data.outTimestamp || data.timestamp;
+                    const inTime = Date.now();
+                    const duration = outTime ? (inTime - outTime) : null;
+                    
+                    // Update student status
+                    await database.ref('students/' + studentId).update({
+                        status: 'in',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        outTimestamp: null
+                    });
+                    
+                    // Log the manual reset
+                    const logRef = database.ref('logs').push();
+                    await logRef.set({
+                        studentName: data.name,
+                        qrCode: data.qrCode,
+                        period: data.period,
+                        schedule: data.schedule,
+                        action: 'manual-reset',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        date: new Date().toISOString().split('T')[0],
+                        outTime: outTime,
+                        inTime: inTime,
+                        duration: duration
+                    });
+                } else {
+                    await database.ref('students/' + studentId).update({
+                        status: 'in',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        outTimestamp: null
+                    });
+                }
             } catch (error) {
                 console.error('Error resetting student:', error);
                 alert('Failed to reset student. Please try again.');
