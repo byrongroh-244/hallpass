@@ -313,19 +313,24 @@
 <body>
     <!-- Schedule Selection Modal -->
     <div class="modal-overlay" id="scheduleModal">
-        <div class="modal-content">
-            <h2>🗓️ Select Today's Schedule</h2>
-            <p>Which schedule are you using today?</p>
+    <div class="modal-content">
+        <div id="step1">
+            <h2>🗓️ Select Day</h2>
             <div class="schedule-buttons">
-                <button class="schedule-button red" onclick="selectSchedule('red')">
-                    🔴 Red Day
-                </button>
-                <button class="schedule-button black" onclick="selectSchedule('black')">
-                    ⚫ Black Day
-                </button>
+                <button class="schedule-button red" onclick="setDayType('red')">🔴 Red Day</button>
+                <button class="schedule-button black" onclick="setDayType('black')">⚫ Black Day</button>
             </div>
         </div>
+        <div id="step2" style="display: none;">
+            <h2>⏰ Select Timing</h2>
+            <div class="schedule-buttons">
+                <button class="schedule-button" style="background: #4f46e5; color: white;" onclick="finalizeSchedule('regular')">Regular Schedule</button>
+                <button class="schedule-button" style="background: #fbbf24; color: black;" onclick="finalizeSchedule('wednesday')">Wednesday (Delayed)</button>
+            </div>
+            <button onclick="resetSelection()" style="margin-top: 15px; background: none; border: none; color: #6b7280; cursor: pointer;">← Go Back</button>
+        </div>
     </div>
+</div>
     
     <!-- Hidden Triple-Tap Menu -->
     <div class="hidden-menu" id="hiddenMenu">
@@ -384,85 +389,40 @@
         // ====================================
         // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
         // ====================================
-        const schedules = {
-            red: [
-                {
-                   name: "Algebra - Red 1",
-                    startTime: "08:25",
-                    endTime: "09:45",
-                    students: {
-                        'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Algebra - Red 2",
-                    startTime: "10:40",
-                    endTime: "12:00",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Pre-Algebra - Red 3",
-                   startTime: "12:50",
-                    endTime: "14:10",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-            ],
-            black: [
-                {
-                   name: "Geometry - Black 2",
-                    startTime: "10:40",
-                    endTime: "12:00",
-                    students: {
-                        'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Geometry - Black 3",
-                   startTime: "12:50",
-                    endTime: "14:10",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Algebra - Black 4",
-                   startTime: "14:15",
-                    endTime: "15:35",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-            ],
-        };
-
+      
+		// 1. Updated State Variables
+		let selectedDayColor = null; // 'red' or 'black'
+		let selectedTiming = null;   // 'regular' or 'wednesday'
+		let activeSchedule = null;   // used for Firebase paths
+		let classSchedule = [];      // current periods
+		
+		// 2. Updated Nested Schedule Object
+		const schedules = {
+		    red: {
+		        regular: [
+		            { name: "Algebra - Red 1", startTime: "08:25", endTime: "09:45", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Algebra - Red 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Pre-Algebra - Red 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+		        ],
+		        wednesday: [
+		            { name: "Algebra - Red 1", startTime: "09:25", endTime: "10:30", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Algebra - Red 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Pre-Algebra - Red 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+		        ]
+		    },
+		    black: {
+		        regular: [
+		            { name: "Geometry - Black 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Geometry - Black 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Algebra - Black 4", startTime: "14:15", endTime: "15:35", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+		        ],
+		        wednesday: [
+		            { name: "Geometry - Black 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Geometry - Black 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+		            { name: "Algebra - Black 4", startTime: "14:10", endTime: "15:15", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+		        ]
+		    }
+		};
         // Current active schedule (will be set by user selection)
         let activeSchedule = null;
         let classSchedule = [];
@@ -470,22 +430,26 @@
         // ====================================
         // SCHEDULE SELECTION FUNCTIONS
         // ====================================
-        function selectSchedule(scheduleType) {
-            activeSchedule = scheduleType;
-            classSchedule = schedules[scheduleType];
-            
-            // Save to localStorage
-            localStorage.setItem('activeSchedule', scheduleType);
-            
-            // Hide modal
-            document.getElementById('scheduleModal').style.display = 'none';
-            
-            // Update indicator
-            updateScheduleIndicator();
-            
-            // Start scanner
-            startScanner();
-        }
+        // 3. Updated Two-Step Selection Logic
+		function setDayType(color) {
+			selectedDayColor = color;
+			document.getElementById('step1').style.display = 'none';
+			document.getElementById('step2').style.display = 'block';
+		}
+		
+		function finalizeSchedule(timing) {
+			selectedTiming = timing;
+			activeSchedule = selectedDayColor;
+			classSchedule = schedules[selectedDayColor][timing];
+			
+			localStorage.setItem('activeSchedule', selectedDayColor);
+			localStorage.setItem('selectedTiming', timing);
+			
+			document.getElementById('scheduleModal').style.display = 'none';
+			if (typeof updateScheduleIndicator === "function") updateScheduleIndicator();
+			if (typeof startScanner === "function") startScanner();
+			if (typeof updatePeriodInfo === "function") updatePeriodInfo();
+		}
 
         function updateScheduleIndicator() {
             const indicator = document.getElementById('scheduleIndicator');
