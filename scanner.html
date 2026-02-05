@@ -678,7 +678,8 @@
         // ====================================
         function showStatus(uniqueId, newStatus) {
             // Extract student info from the uniqueId that was just scanned
-            const qrCode = uniqueId.split('_')[0] + '_' + uniqueId.split('_')[1]; // Reconstruct qr_XX
+            const parts = uniqueId.split('_');
+			const qrCode = parts[1] + '_' + parts[2];
             const studentInfo = getStudentInfo(qrCode);
             const studentName = studentInfo.studentName || 'Unknown Student';
             
