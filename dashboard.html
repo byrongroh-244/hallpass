@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Status Dashboard</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f3f4f6;
+            padding: 30px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1f2937;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .stat-value.in {
+            color: #059669;
+        }
+        
+        .stat-value.out {
+            color: #dc2626;
+        }
+        
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .student-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+        
+        .student-card.in {
+            border-color: #10b981;
+        }
+        
+        .student-card.out {
+            background: #fee2e2;
+            border-color: #dc2626;
+        }
+        
+        .student-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        
+        .student-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .student-id {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 3px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-top: 5px;
+        }
+        
+        .status-indicator.in {
+            background: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .status-indicator.out {
+            background: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .status-text {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .status-text.in {
+            color: #059669;
+        }
+        
+        .status-text.out {
+            color: #dc2626;
+        }
+        
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #dc2626;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        
+        .reset-button {
+            width: 100%;
+            padding: 10px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        
+        .reset-button:hover {
+            background: #4338ca;
+        }
+        
+        .reset-button:active {
+            transform: scale(0.98);
+        }
+        
+        .last-updated {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+        
+        .no-students {
+            text-align: center;
+            padding: 60px;
+            color: #6b7280;
+            font-size: 18px;
+        }
+        
+        /* Schedule Selection Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .modal-content h2 {
+            font-size: 32px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        
+        .modal-content p {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .schedule-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .schedule-button {
+            flex: 1;
+            padding: 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 22px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .schedule-button.red {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .schedule-button.red:hover {
+            background: #b91c1c;
+            transform: scale(1.02);
+        }
+        
+        .schedule-button.black {
+            background: #1f2937;
+            color: white;
+        }
+        
+        .schedule-button.black:hover {
+            background: #111827;
+            transform: scale(1.02);
+        }
+        
+        .schedule-button:active {
+            transform: scale(0.98);
+        }
+        
+        .schedule-selector {
+            display: inline-flex;
+            gap: 10px;
+            background: #f3f4f6;
+            padding: 5px;
+            border-radius: 10px;
+            margin-left: 15px;
+        }
+        
+        .schedule-option {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: #6b7280;
+        }
+        
+        .schedule-option.active.red {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .schedule-option.active.black {
+            background: #1f2937;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Schedule Selection Modal -->
+    <div class="modal-overlay" id="scheduleModal">
+        <div class="modal-content">
+            <h2>🗓️ Select Today's Schedule</h2>
+            <p>Which schedule are you viewing today?</p>
+            <div class="schedule-buttons">
+                <button class="schedule-button red" onclick="selectSchedule('red')">
+                    🔴 Red Day
+                </button>
+                <button class="schedule-button black" onclick="selectSchedule('black')">
+                    ⚫ Black Day
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="header">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h1>📊 Classroom Status Dashboard</h1>
+            <div class="schedule-selector">
+                <button class="schedule-option" id="redOption" onclick="selectSchedule('red')">🔴 Red Day</button>
+                <button class="schedule-option" id="blackOption" onclick="selectSchedule('black')">⚫ Black Day</button>
+            </div>
+        </div>
+        <div id="periodInfo" style="color: #6b7280; margin-top: 10px; font-size: 16px;">Loading period info...</div>
+        <div class="header-stats">
+            <div class="stat">
+                <div>
+                    <div class="stat-label">In Classroom</div>
+                    <div class="stat-value in" id="inCount">0</div>
+                </div>
+            </div>
+            <div class="stat">
+                <div>
+                    <div class="stat-label">Out of Room</div>
+                    <div class="stat-value out" id="outCount">0</div>
+                </div>
+            </div>
+            <div class="stat">
+                <div>
+                    <div class="stat-label">Total Students</div>
+                    <div class="stat-value" style="color: #4f46e5;" id="totalCount">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="students-grid" id="studentsGrid">
+        <div class="no-students">Loading students...</div>
+    </div>
+
+    <script>
+        // ====================================
+        // FIREBASE CONFIGURATION
+        // ====================================
+        // Replace with your Firebase config (same as scanner.html)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // ====================================
+        // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
+        // ====================================
+        // This should EXACTLY match the schedule in scanner.html
+        const schedules = {
+            red: [
+                {
+                    name: "Period 1",
+                    startTime: "08:30",
+                    endTime: "09:50",
+                    students: {
+                        'qr_01': 'Alice Johnson (Red)',
+                        'qr_02': 'Bob Smith (Red)',
+                        'qr_03': 'Carol Williams (Red)',
+                        'qr_04': 'David Brown (Red)',
+                        'qr_05': 'Emma Davis (Red)',
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "10:00",
+                    endTime: "11:20",
+                    students: {
+                        'qr_01': 'Frank Miller (Red)',
+                        'qr_02': 'Grace Wilson (Red)',
+                        'qr_03': 'Henry Moore (Red)',
+                        'qr_04': 'Iris Taylor (Red)',
+                        'qr_05': 'Jack Anderson (Red)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kate Thomas (Red)',
+                        'qr_02': 'Liam Jackson (Red)',
+                        'qr_03': 'Mia White (Red)',
+                        'qr_04': 'Noah Harris (Red)',
+                        'qr_05': 'Olivia Martin (Red)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Paul Thompson (Red)',
+                        'qr_02': 'Quinn Garcia (Red)',
+                        'qr_03': 'Rachel Martinez (Red)',
+                        'qr_04': 'Sam Robinson (Red)',
+                        'qr_05': 'Tina Clark (Red)',
+                    }
+                },
+            ],
+            black: [
+                {
+                    name: "Period 1",
+                    startTime: "08:30",
+                    endTime: "09:50",
+                    students: {
+                        'qr_01': 'Alex Chen (Black)',
+                        'qr_02': 'Bella Rodriguez (Black)',
+                        'qr_03': 'Carlos Sanchez (Black)',
+                        'qr_04': 'Diana Lee (Black)',
+                        'qr_05': 'Ethan Wright (Black)',
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "10:00",
+                    endTime: "11:20",
+                    students: {
+                        'qr_01': 'Fiona Green (Black)',
+                        'qr_02': 'George Hall (Black)',
+                        'qr_03': 'Hannah King (Black)',
+                        'qr_04': 'Ian Scott (Black)',
+                        'qr_05': 'Julia Adams (Black)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kevin Baker (Black)',
+                        'qr_02': 'Laura Nelson (Black)',
+                        'qr_03': 'Marcus Carter (Black)',
+                        'qr_04': 'Nina Mitchell (Black)',
+                        'qr_05': 'Oscar Perez (Black)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Peter Roberts (Black)',
+                        'qr_02': 'Quincy Turner (Black)',
+                        'qr_03': 'Rosa Phillips (Black)',
+                        'qr_04': 'Steven Campbell (Black)',
+                        'qr_05': 'Tanya Parker (Black)',
+                    }
+                },
+            ]
+        };
+
+        // Current active schedule
+        let activeSchedule = null;
+        let classSchedule = [];
+
+        // ====================================
+        // SCHEDULE SELECTION FUNCTIONS
+        // ====================================
+        function selectSchedule(scheduleType) {
+            activeSchedule = scheduleType;
+            classSchedule = schedules[scheduleType];
+            
+            // Save to localStorage
+            localStorage.setItem('dashboardSchedule', scheduleType);
+            
+            // Hide modal
+            document.getElementById('scheduleModal').style.display = 'none';
+            
+            // Update button states
+            document.getElementById('redOption').classList.remove('active', 'red');
+            document.getElementById('blackOption').classList.remove('active', 'black');
+            
+            if (scheduleType === 'red') {
+                document.getElementById('redOption').classList.add('active', 'red');
+            } else {
+                document.getElementById('blackOption').classList.add('active', 'black');
+            }
+            
+            // Refresh display
+            updatePeriodInfo();
+        }
+
+        // ====================================
+        // HELPER FUNCTION: Get Current Period
+        // ====================================
+        function getCurrentPeriod() {
+            if (!classSchedule || classSchedule.length === 0) return null;
+            
+            const now = new Date();
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            for (const period of classSchedule) {
+                if (currentTime >= period.startTime && currentTime < period.endTime) {
+                    return period;
+                }
+            }
+            
+            return null;
+        }
+
+        // ====================================
+        // HELPER FUNCTION: Get All Periods
+        // ====================================
+        function getAllPeriods() {
+            return classSchedule;
+        }
+
+        // ====================================
+        // TIMER TRACKING
+        // ====================================
+        const timerIntervals = {};
+
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function startTimer(studentId, timestamp) {
+            // Clear existing timer if any
+            if (timerIntervals[studentId]) {
+                clearInterval(timerIntervals[studentId]);
+            }
+
+            const timerEl = document.getElementById(`timer-${studentId}`);
+            if (!timerEl) return;
+
+            // Update timer every second
+            timerIntervals[studentId] = setInterval(() => {
+                const elapsed = Date.now() - timestamp;
+                timerEl.textContent = `Out: ${formatTime(elapsed)}`;
+            }, 1000);
+
+            // Initial update
+            const elapsed = Date.now() - timestamp;
+            timerEl.textContent = `Out: ${formatTime(elapsed)}`;
+        }
+
+        function stopTimer(studentId) {
+            if (timerIntervals[studentId]) {
+                clearInterval(timerIntervals[studentId]);
+                delete timerIntervals[studentId];
+            }
+        }
+
+        // ====================================
+        // RESET FUNCTION
+        // ====================================
+        async function resetStudent(studentId) {
+            try {
+                await database.ref('students/' + studentId).update({
+                    status: 'in',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (error) {
+                console.error('Error resetting student:', error);
+                alert('Failed to reset student. Please try again.');
+            }
+        }
+
+        // ====================================
+        // CARD RENDERING
+        // ====================================
+        function createStudentCard(studentId, data) {
+            const card = document.createElement('div');
+            card.className = `student-card ${data.status}`;
+            card.id = `card-${studentId}`;
+
+            const lastUpdated = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Unknown';
+            const qrCode = data.qrCode || studentId.split('_')[0] + '_' + studentId.split('_')[1];
+            const period = data.period || 'Unknown Period';
+
+            card.innerHTML = `
+                <div class="student-header">
+                    <div>
+                        <div class="student-name">${data.name}</div>
+                        <div class="student-id">${qrCode} • ${period}</div>
+                    </div>
+                    <div class="status-indicator ${data.status}"></div>
+                </div>
+                
+                <div class="status-text ${data.status}">
+                    ${data.status === 'in' ? '✓ In Classroom' : '⚠ Out of Room'}
+                </div>
+                
+                ${data.status === 'out' ? `<div class="timer" id="timer-${studentId}">Out: 00:00</div>` : ''}
+                
+                <button class="reset-button" onclick="resetStudent('${studentId}')">
+                    Reset to "In"
+                </button>
+                
+                <div class="last-updated">Last updated: ${lastUpdated}</div>
+            `;
+
+            return card;
+        }
+
+        function updateStudentCard(studentId, data) {
+            const existingCard = document.getElementById(`card-${studentId}`);
+            if (existingCard) {
+                existingCard.remove();
+            }
+
+            const grid = document.getElementById('studentsGrid');
+            const newCard = createStudentCard(studentId, data);
+            grid.appendChild(newCard);
+
+            // Start timer if student is out
+            if (data.status === 'out' && data.timestamp) {
+                startTimer(studentId, data.timestamp);
+            } else {
+                stopTimer(studentId);
+            }
+        }
+
+        // ====================================
+        // STATISTICS UPDATE
+        // ====================================
+        function updateStats(students) {
+            let inCount = 0;
+            let outCount = 0;
+
+            Object.values(students).forEach(student => {
+                if (student.status === 'in') {
+                    inCount++;
+                } else {
+                    outCount++;
+                }
+            });
+
+            document.getElementById('inCount').textContent = inCount;
+            document.getElementById('outCount').textContent = outCount;
+            document.getElementById('totalCount').textContent = inCount + outCount;
+        }
+
+        // ====================================
+        // PERIOD INFO DISPLAY
+        // ====================================
+        function updatePeriodInfo() {
+            const periodInfoEl = document.getElementById('periodInfo');
+            const currentPeriod = getCurrentPeriod();
+            
+            if (currentPeriod) {
+                periodInfoEl.innerHTML = `📚 <strong>${currentPeriod.name}</strong> (${currentPeriod.startTime} - ${currentPeriod.endTime})`;
+                periodInfoEl.style.color = '#059669';
+            } else {
+                periodInfoEl.innerHTML = `⏸️ No active class period`;
+                periodInfoEl.style.color = '#6b7280';
+            }
+        }
+
+        // Update period info every minute
+        setInterval(updatePeriodInfo, 60000);
+        updatePeriodInfo();
+
+        // ====================================
+        // FIREBASE LISTENERS
+        // ====================================
+        const studentsRef = database.ref('students');
+
+        studentsRef.on('value', (snapshot) => {
+            if (!activeSchedule) return; // Wait for schedule selection
+            
+            const students = snapshot.val();
+            const grid = document.getElementById('studentsGrid');
+            const currentPeriod = getCurrentPeriod();
+
+            if (!students || Object.keys(students).length === 0) {
+                grid.innerHTML = '<div class="no-students">No students registered yet</div>';
+                updateStats({});
+                return;
+            }
+
+            // Filter students to only show current schedule and period
+            let filteredStudents = {};
+            if (currentPeriod) {
+                const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
+                const schedulePrefix = activeSchedule + '_';
+                
+                filteredStudents = Object.keys(students)
+                    .filter(key => key.startsWith(schedulePrefix) && key.endsWith(periodSuffix))
+                    .reduce((obj, key) => {
+                        obj[key] = students[key];
+                        return obj;
+                    }, {});
+            } else {
+                // If no active period, show all students from the active schedule
+                const schedulePrefix = activeSchedule + '_';
+                filteredStudents = Object.keys(students)
+                    .filter(key => key.startsWith(schedulePrefix))
+                    .reduce((obj, key) => {
+                        obj[key] = students[key];
+                        return obj;
+                    }, {});
+            }
+
+            // Clear "loading" message
+            const noStudentsMsg = grid.querySelector('.no-students');
+            if (noStudentsMsg) {
+                noStudentsMsg.remove();
+            }
+
+            // If no students for current period
+            if (Object.keys(filteredStudents).length === 0) {
+                const scheduleLabel = activeSchedule === 'red' ? '🔴 Red Day' : '⚫ Black Day';
+                grid.innerHTML = currentPeriod 
+                    ? `<div class="no-students">No students have checked in for ${currentPeriod.name} (${scheduleLabel}) yet</div>`
+                    : `<div class="no-students">No active class period for ${scheduleLabel}</div>`;
+                updateStats({});
+                return;
+            }
+
+            // Update stats
+            updateStats(filteredStudents);
+
+            // Clear existing cards
+            grid.innerHTML = '';
+
+            // Render all student cards for current period
+            Object.keys(filteredStudents).forEach(studentId => {
+                const card = createStudentCard(studentId, filteredStudents[studentId]);
+                grid.appendChild(card);
+                
+                // Start timer if student is out
+                if (filteredStudents[studentId].status === 'out' && filteredStudents[studentId].timestamp) {
+                    startTimer(studentId, filteredStudents[studentId].timestamp);
+                }
+            });
+        });
+
+        // Check if schedule was previously selected
+        window.addEventListener('load', () => {
+            const savedSchedule = localStorage.getItem('dashboardSchedule');
+            
+            if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
+                // Auto-select saved schedule
+                selectSchedule(savedSchedule);
+            } else {
+                // Show selection modal
+                document.getElementById('scheduleModal').style.display = 'flex';
+            }
+        });
+
+        // Make resetStudent and selectSchedule functions globally available
+        window.resetStudent = resetStudent;
+        window.selectSchedule = selectSchedule;
+    </script>
+</body>
+</html>

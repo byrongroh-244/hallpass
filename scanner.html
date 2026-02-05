@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Scanner Kiosk</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #4f46e5;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        #reader {
+            width: 100%;
+            border: none;
+        }
+        
+        .status-area {
+            padding: 30px;
+            text-align: center;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .student-name {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+        }
+        
+        .student-name.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 10px;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .status-badge.show {
+            opacity: 1;
+        }
+        
+        .status-badge.out {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-badge.in {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .error-message {
+            color: #dc2626;
+            font-size: 16px;
+            padding: 15px;
+            background: #fee2e2;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        
+        .waiting-text {
+            color: #6b7280;
+            font-size: 18px;
+        }
+        
+        /* Schedule Selection Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .modal-content h2 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        
+        .modal-content p {
+            color: #6b7280;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .schedule-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .schedule-button {
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .schedule-button.red {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .schedule-button.red:hover {
+            background: #b91c1c;
+            transform: scale(1.02);
+        }
+        
+        .schedule-button.black {
+            background: #1f2937;
+            color: white;
+        }
+        
+        .schedule-button.black:hover {
+            background: #111827;
+            transform: scale(1.02);
+        }
+        
+        .schedule-button:active {
+            transform: scale(0.98);
+        }
+        
+        /* Hidden Menu */
+        .hidden-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .hidden-menu.show {
+            display: flex;
+        }
+        
+        .menu-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 350px;
+            width: 90%;
+        }
+        
+        .menu-content h3 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .current-schedule {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .current-schedule-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .current-schedule-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .current-schedule-value.red {
+            color: #dc2626;
+        }
+        
+        .current-schedule-value.black {
+            color: #1f2937;
+        }
+        
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .menu-button {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .menu-button.change {
+            background: #4f46e5;
+            color: white;
+        }
+        
+        .menu-button.change:hover {
+            background: #4338ca;
+        }
+        
+        .menu-button.close {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        
+        .menu-button.close:hover {
+            background: #d1d5db;
+        }
+        
+        .schedule-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .schedule-indicator.red {
+            background: #dc2626;
+        }
+        
+        .schedule-indicator.black {
+            background: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <!-- Schedule Selection Modal -->
+    <div class="modal-overlay" id="scheduleModal">
+        <div class="modal-content">
+            <h2>🗓️ Select Today's Schedule</h2>
+            <p>Which schedule are you using today?</p>
+            <div class="schedule-buttons">
+                <button class="schedule-button red" onclick="selectSchedule('red')">
+                    🔴 Red Day
+                </button>
+                <button class="schedule-button black" onclick="selectSchedule('black')">
+                    ⚫ Black Day
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hidden Triple-Tap Menu -->
+    <div class="hidden-menu" id="hiddenMenu">
+        <div class="menu-content">
+            <h3>⚙️ Settings</h3>
+            <div class="current-schedule">
+                <div class="current-schedule-label">Current Schedule</div>
+                <div class="current-schedule-value" id="currentScheduleDisplay">Red Day</div>
+            </div>
+            <div class="menu-buttons">
+                <button class="menu-button change" onclick="changeSchedule()">
+                    Change Schedule
+                </button>
+                <button class="menu-button close" onclick="closeHiddenMenu()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="header" id="scannerHeader" style="position: relative;">
+            <div class="schedule-indicator" id="scheduleIndicator">Red Day</div>
+            <h1>🎓 Hall Pass Scanner</h1>
+            <p>Scan student QR code</p>
+        </div>
+        
+        <div id="reader"></div>
+        
+        <div class="status-area">
+            <div class="waiting-text">Ready to scan...</div>
+            <div class="student-name" id="studentName"></div>
+            <div class="status-badge" id="statusBadge"></div>
+        </div>
+    </div>
+
+    <script>
+        // ====================================
+        // FIREBASE CONFIGURATION
+        // ====================================
+        // Replace with your Firebase config
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // ====================================
+        // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
+        // ====================================
+        const schedules = {
+            red: [
+                {
+                    name: "Period 1",
+                    startTime: "08:30",
+                    endTime: "09:50",
+                    students: {
+                        'qr_01': 'Alice Johnson (Red)',
+                        'qr_02': 'Bob Smith (Red)',
+                        'qr_03': 'Carol Williams (Red)',
+                        'qr_04': 'David Brown (Red)',
+                        'qr_05': 'Emma Davis (Red)',
+                        // Add up to 30 QR codes for this period
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "10:00",
+                    endTime: "11:20",
+                    students: {
+                        'qr_01': 'Frank Miller (Red)',
+                        'qr_02': 'Grace Wilson (Red)',
+                        'qr_03': 'Henry Moore (Red)',
+                        'qr_04': 'Iris Taylor (Red)',
+                        'qr_05': 'Jack Anderson (Red)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kate Thomas (Red)',
+                        'qr_02': 'Liam Jackson (Red)',
+                        'qr_03': 'Mia White (Red)',
+                        'qr_04': 'Noah Harris (Red)',
+                        'qr_05': 'Olivia Martin (Red)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Paul Thompson (Red)',
+                        'qr_02': 'Quinn Garcia (Red)',
+                        'qr_03': 'Rachel Martinez (Red)',
+                        'qr_04': 'Sam Robinson (Red)',
+                        'qr_05': 'Tina Clark (Red)',
+                    }
+                },
+            ],
+            black: [
+                {
+                    name: "Period 1",
+                    startTime: "08:30",
+                    endTime: "09:50",
+                    students: {
+                        'qr_01': 'Alex Chen (Black)',
+                        'qr_02': 'Bella Rodriguez (Black)',
+                        'qr_03': 'Carlos Sanchez (Black)',
+                        'qr_04': 'Diana Lee (Black)',
+                        'qr_05': 'Ethan Wright (Black)',
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "10:00",
+                    endTime: "11:20",
+                    students: {
+                        'qr_01': 'Fiona Green (Black)',
+                        'qr_02': 'George Hall (Black)',
+                        'qr_03': 'Hannah King (Black)',
+                        'qr_04': 'Ian Scott (Black)',
+                        'qr_05': 'Julia Adams (Black)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kevin Baker (Black)',
+                        'qr_02': 'Laura Nelson (Black)',
+                        'qr_03': 'Marcus Carter (Black)',
+                        'qr_04': 'Nina Mitchell (Black)',
+                        'qr_05': 'Oscar Perez (Black)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Peter Roberts (Black)',
+                        'qr_02': 'Quincy Turner (Black)',
+                        'qr_03': 'Rosa Phillips (Black)',
+                        'qr_04': 'Steven Campbell (Black)',
+                        'qr_05': 'Tanya Parker (Black)',
+                    }
+                },
+            ]
+        };
+
+        // Current active schedule (will be set by user selection)
+        let activeSchedule = null;
+        let classSchedule = [];
+
+        // ====================================
+        // SCHEDULE SELECTION FUNCTIONS
+        // ====================================
+        function selectSchedule(scheduleType) {
+            activeSchedule = scheduleType;
+            classSchedule = schedules[scheduleType];
+            
+            // Save to localStorage
+            localStorage.setItem('activeSchedule', scheduleType);
+            
+            // Hide modal
+            document.getElementById('scheduleModal').style.display = 'none';
+            
+            // Update indicator
+            updateScheduleIndicator();
+            
+            // Start scanner
+            startScanner();
+        }
+
+        function updateScheduleIndicator() {
+            const indicator = document.getElementById('scheduleIndicator');
+            const displayText = document.getElementById('currentScheduleDisplay');
+            
+            if (activeSchedule === 'red') {
+                indicator.textContent = '🔴 Red Day';
+                indicator.className = 'schedule-indicator red';
+                if (displayText) {
+                    displayText.textContent = '🔴 Red Day';
+                    displayText.className = 'current-schedule-value red';
+                }
+            } else if (activeSchedule === 'black') {
+                indicator.textContent = '⚫ Black Day';
+                indicator.className = 'schedule-indicator black';
+                if (displayText) {
+                    displayText.textContent = '⚫ Black Day';
+                    displayText.className = 'current-schedule-value black';
+                }
+            }
+        }
+
+        function changeSchedule() {
+            // Show modal again
+            document.getElementById('scheduleModal').style.display = 'flex';
+            closeHiddenMenu();
+        }
+
+        // ====================================
+        // TRIPLE-TAP MENU FUNCTIONS
+        // ====================================
+        let tapCount = 0;
+        let tapTimer = null;
+
+        document.getElementById('scannerHeader').addEventListener('click', function() {
+            tapCount++;
+            
+            if (tapCount === 1) {
+                tapTimer = setTimeout(() => {
+                    tapCount = 0;
+                }, 800); // Reset if no triple tap within 800ms
+            }
+            
+            if (tapCount === 3) {
+                clearTimeout(tapTimer);
+                tapCount = 0;
+                openHiddenMenu();
+            }
+        });
+
+        function openHiddenMenu() {
+            document.getElementById('hiddenMenu').classList.add('show');
+        }
+
+        function closeHiddenMenu() {
+            document.getElementById('hiddenMenu').classList.remove('show');
+        }
+
+        // ====================================
+        // HELPER FUNCTION: Get Current Period
+        // ====================================
+        function getCurrentPeriodStudents() {
+            const now = new Date();
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            for (const period of classSchedule) {
+                if (currentTime >= period.startTime && currentTime < period.endTime) {
+                    return {
+                        periodName: period.name,
+                        students: period.students
+                    };
+                }
+            }
+            
+            // No active period
+            return null;
+        }
+
+        // ====================================
+        // HELPER FUNCTION: Get Student Info
+        // ====================================
+        function getStudentInfo(qrCode) {
+            const currentPeriod = getCurrentPeriodStudents();
+            
+            if (!currentPeriod) {
+                return {
+                    error: 'No active class period right now',
+                    periodName: null,
+                    studentName: null,
+                    uniqueId: null
+                };
+            }
+            
+            const studentName = currentPeriod.students[qrCode];
+            
+            if (!studentName) {
+                return {
+                    error: 'QR code not registered for this period',
+                    periodName: currentPeriod.periodName,
+                    studentName: null,
+                    uniqueId: null
+                };
+            }
+            
+            // Create unique ID: schedule + qrCode + period name to keep everything separate
+            const uniqueId = `${activeSchedule}_${qrCode}_${currentPeriod.periodName.replace(/\s+/g, '_')}`;
+            
+            return {
+                error: null,
+                periodName: currentPeriod.periodName,
+                studentName: studentName,
+                uniqueId: uniqueId,
+                qrCode: qrCode,
+                schedule: activeSchedule
+            };
+        }
+
+        // ====================================
+        // COOLDOWN TRACKING
+        // ====================================
+        const cooldownPeriod = 30000; // 30 seconds in milliseconds
+        const lastScanTimes = {};
+
+        // ====================================
+        // AUDIO FEEDBACK
+        // ====================================
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSuccessBeep() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800; // High frequency
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
+        function playErrorBuzz() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 200; // Low frequency
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        }
+
+        // ====================================
+        // UI FUNCTIONS
+        // ====================================
+        function showStatus(uniqueId, newStatus) {
+            // Extract student info from the uniqueId that was just scanned
+            const qrCode = uniqueId.split('_')[0] + '_' + uniqueId.split('_')[1]; // Reconstruct qr_XX
+            const studentInfo = getStudentInfo(qrCode);
+            const studentName = studentInfo.studentName || 'Unknown Student';
+            
+            const nameEl = document.getElementById('studentName');
+            const badgeEl = document.getElementById('statusBadge');
+            const waitingText = document.querySelector('.waiting-text');
+            
+            waitingText.style.display = 'none';
+            
+            nameEl.textContent = studentName;
+            nameEl.classList.add('show');
+            
+            badgeEl.textContent = newStatus === 'out' ? '→ Out of Room' : '→ Back in Room';
+            badgeEl.className = 'status-badge show ' + newStatus;
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                nameEl.classList.remove('show');
+                badgeEl.classList.remove('show');
+                setTimeout(() => {
+                    waitingText.style.display = 'block';
+                }, 300);
+            }, 3000);
+        }
+
+        function showError(message) {
+            const statusArea = document.querySelector('.status-area');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            
+            statusArea.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 3000);
+        }
+
+        // ====================================
+        // SCAN PROCESSING
+        // ====================================
+        async function processStudentScan(qrCode) {
+            // Get student info based on current time
+            const studentInfo = getStudentInfo(qrCode);
+            
+            // Check for errors (no active period or unknown QR code)
+            if (studentInfo.error) {
+                playErrorBuzz();
+                showError(studentInfo.error);
+                return;
+            }
+
+            // Check cooldown (use unique ID for cooldown tracking)
+            const now = Date.now();
+            if (lastScanTimes[studentInfo.uniqueId] && (now - lastScanTimes[studentInfo.uniqueId] < cooldownPeriod)) {
+                playErrorBuzz();
+                const remainingSeconds = Math.ceil((cooldownPeriod - (now - lastScanTimes[studentInfo.uniqueId])) / 1000);
+                showError(`Please wait ${remainingSeconds} seconds before scanning again`);
+                return;
+            }
+
+            try {
+                const studentRef = database.ref('students/' + studentInfo.uniqueId);
+                const snapshot = await studentRef.once('value');
+                const currentData = snapshot.val();
+                
+                let newStatus;
+                if (!currentData || currentData.status === 'in') {
+                    // Student is currently IN, mark them OUT
+                    newStatus = 'out';
+                    await studentRef.set({
+                        name: studentInfo.studentName,
+                        qrCode: studentInfo.qrCode,
+                        period: studentInfo.periodName,
+                        schedule: studentInfo.schedule,
+                        status: 'out',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                } else {
+                    // Student is currently OUT, mark them IN
+                    newStatus = 'in';
+                    await studentRef.set({
+                        name: studentInfo.studentName,
+                        qrCode: studentInfo.qrCode,
+                        period: studentInfo.periodName,
+                        schedule: studentInfo.schedule,
+                        status: 'in',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+
+                // Update cooldown tracker
+                lastScanTimes[studentInfo.uniqueId] = now;
+
+                // Provide feedback
+                playSuccessBeep();
+                showStatus(studentInfo.uniqueId, newStatus);
+
+            } catch (error) {
+                console.error('Error updating student:', error);
+                playErrorBuzz();
+                showError('Database error - please try again');
+            }
+        }
+
+        // ====================================
+        // QR SCANNER INITIALIZATION
+        // ====================================
+        const html5QrCode = new Html5Qrcode("reader");
+        let scannerStarted = false;
+
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        };
+
+        function startScanner() {
+            if (scannerStarted) return;
+            
+            // First check if camera is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('Camera not supported in this browser. Please use Chrome, Safari, or Firefox.');
+                return;
+            }
+            
+            // Start scanning
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText, decodedResult) => {
+                    processStudentScan(decodedText.trim());
+                },
+                (errorMessage) => {
+                    // Ignore scan errors (they happen continuously while scanning)
+                }
+            ).catch(err => {
+                console.error('Unable to start scanning:', err);
+                
+                // Provide specific error messages
+                let errorMsg = 'Camera Error: ';
+                
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMsg += 'Camera permission denied. Please allow camera access and refresh the page.';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMsg += 'No camera found on this device.';
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMsg += 'Camera is already in use by another app. Close other apps and refresh.';
+                } else if (err.name === 'OverconstrainedError') {
+                    errorMsg += 'Camera does not support required settings.';
+                } else if (err.name === 'NotSupportedError') {
+                    errorMsg += 'HTTPS required for camera access. This page must be served over HTTPS.';
+                } else if (err.name === 'SecurityError') {
+                    errorMsg += 'HTTPS required. Please access this page via HTTPS (not HTTP or file://).';
+                } else {
+                    errorMsg += err.message || 'Unknown error. Try using HTTPS or a different browser.';
+                }
+                
+                const statusArea = document.querySelector('.status-area');
+                statusArea.innerHTML = `
+                    <div class="error-message" style="background: #fee2e2; color: #dc2626; padding: 20px; border-radius: 10px;">
+                        <strong>⚠️ ${errorMsg}</strong>
+                        <br><br>
+                        <strong>Common Fixes:</strong>
+                        <ul style="text-align: left; margin-top: 10px;">
+                            <li>Make sure you're using HTTPS (not file:/// or http://)</li>
+                            <li>Use Safari on iPhone or Chrome on Android</li>
+                            <li>Check Settings → Safari → Camera (iPhone)</li>
+                            <li>Grant camera permission when prompted</li>
+                            <li>Refresh the page after fixing permissions</li>
+                        </ul>
+                    </div>
+                `;
+            });
+            
+            scannerStarted = true;
+        }
+
+        // Check if schedule was previously selected
+        window.addEventListener('load', () => {
+            const savedSchedule = localStorage.getItem('activeSchedule');
+            
+            if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
+                // Auto-select saved schedule
+                selectSchedule(savedSchedule);
+            } else {
+                // Show selection modal
+                document.getElementById('scheduleModal').style.display = 'flex';
+            }
+        });
+
+        // Make menu functions globally available
+        window.selectSchedule = selectSchedule;
+        window.changeSchedule = changeSchedule;
+        window.closeHiddenMenu = closeHiddenMenu;
+
+        // Note: Student records are created on-demand when scanned
+        // No need to pre-initialize since they're period-specific
+    </script>
+</body>
+</html>
