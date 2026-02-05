@@ -361,7 +361,7 @@
         // ====================================
         // Replace with your Firebase config (same as scanner.html)
         const firebaseConfig = {
-            apiKey: "AIzaSyDBD5CIAmEk90zPZ4h1CYkqqj_hmWi0-8Q",
+            	apiKey: "AIzaSyDBD5CIAmEk90zPZ4h1CYkqqj_hmWi0-8Q",
 			authDomain: "hallpass-632be.firebaseapp.com",
 			databaseURL: "https://hallpass-632be-default-rtdb.firebaseio.com",
 			projectId: "hallpass-632be",
@@ -383,8 +383,8 @@
             red: [
                 {
                     name: "Period 1",
-                    startTime: "23:00",
-                    endTime: "23:10",
+                    startTime: "08:30",
+                    endTime: "09:50",
                     students: {
                         'qr_01': 'Alice Johnson (Red)',
                         'qr_02': 'Bob Smith (Red)',
@@ -395,8 +395,8 @@
                 },
                 {
                     name: "Period 2",
-                    startTime: "23:11",
-                    endTime: "23:15",
+                    startTime: "10:00",
+                    endTime: "11:20",
                     students: {
                         'qr_01': 'Frank Miller (Red)',
                         'qr_02': 'Grace Wilson (Red)',
@@ -601,7 +601,8 @@
             card.id = `card-${studentId}`;
 
             const lastUpdated = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Unknown';
-            const qrCode = data.qrCode || studentId.split('_')[0] + '_' + studentId.split('_')[1];
+            const parts = studentId.split('_');
+			const qrCode = data.qrCode || parts[1] + '_' + parts[2];
             const period = data.period || 'Unknown Period';
 
             card.innerHTML = `
@@ -712,7 +713,7 @@
                 const schedulePrefix = activeSchedule + '_';
                 
                 filteredStudents = Object.keys(students)
-                    .filter(key => key.startsWith(schedulePrefix) && key.endsWith(periodSuffix))
+                    .filter(key => key.startsWith(schedulePrefix) && key.includes(periodSuffix))
                     .reduce((obj, key) => {
                         obj[key] = students[key];
                         return obj;
