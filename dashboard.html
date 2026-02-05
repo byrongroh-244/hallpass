@@ -302,6 +302,37 @@
             background: #1f2937;
             color: white;
         }
+        
+        .start-type-selector {
+            display: inline-flex;
+            gap: 10px;
+            background: #f3f4f6;
+            padding: 5px;
+            border-radius: 10px;
+            margin-left: 15px;
+        }
+        
+        .start-option {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: #6b7280;
+        }
+        
+        .start-option.active.regular {
+            background: #059669;
+            color: white;
+        }
+        
+        .start-option.active.late {
+            background: #f59e0b;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -321,11 +352,17 @@
         </div>
     </div>
     <div class="header">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
             <h1>📊 Classroom Status Dashboard</h1>
-            <div class="schedule-selector">
-                <button class="schedule-option" id="redOption" onclick="selectSchedule('red')">🔴 Red Day</button>
-                <button class="schedule-option" id="blackOption" onclick="selectSchedule('black')">⚫ Black Day</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="schedule-selector">
+                    <button class="schedule-option" id="redOption" onclick="selectScheduleType('red')">🔴 Red Day</button>
+                    <button class="schedule-option" id="blackOption" onclick="selectScheduleType('black')">⚫ Black Day</button>
+                </div>
+                <div class="start-type-selector">
+                    <button class="start-option" id="regularOption" onclick="selectStartType('regular')">⏰ Regular</button>
+                    <button class="start-option" id="lateOption" onclick="selectStartType('late')">🌅 Late</button>
+                </div>
             </div>
         </div>
         <div id="periodInfo" style="color: #6b7280; margin-top: 10px; font-size: 16px;">Loading period info...</div>
@@ -380,137 +417,284 @@
         // ====================================
         // This should EXACTLY match the schedule in scanner.html
         const schedules = {
-            red: [
-                {
-                    name: "Algebra Red 1",
-                    startTime: "00:01",
-                    endTime: "00:59",
-                    students: {
-                        'qr_01': 'Alice Johnson',
-                        'qr_02': 'Bob Smith',
-                        'qr_03': 'Carol Williams (Red)',
-                        'qr_04': 'David Brown (Red)',
-                        'qr_05': 'Emma Davis (Red)',
-                    }
-                },
-                {
-                    name: "Period 2",
-                    startTime: "10:00",
-                    endTime: "11:20",
-                    students: {
-                        'qr_01': 'Frank Miller (Red)',
-                        'qr_02': 'Grace Wilson (Red)',
-                        'qr_03': 'Henry Moore (Red)',
-                        'qr_04': 'Iris Taylor (Red)',
-                        'qr_05': 'Jack Anderson (Red)',
-                    }
-                },
-                {
-                    name: "Period 3",
-                    startTime: "11:30",
-                    endTime: "12:50",
-                    students: {
-                        'qr_01': 'Kate Thomas (Red)',
-                        'qr_02': 'Liam Jackson (Red)',
-                        'qr_03': 'Mia White (Red)',
-                        'qr_04': 'Noah Harris (Red)',
-                        'qr_05': 'Olivia Martin (Red)',
-                    }
-                },
-                {
-                    name: "Period 4",
-                    startTime: "13:00",
-                    endTime: "14:20",
-                    students: {
-                        'qr_01': 'Paul Thompson (Red)',
-                        'qr_02': 'Quinn Garcia (Red)',
-                        'qr_03': 'Rachel Martinez (Red)',
-                        'qr_04': 'Sam Robinson (Red)',
-                        'qr_05': 'Tina Clark (Red)',
-                    }
-                },
-            ],
-            black: [
-                {
-                    name: "Period 1",
-                    startTime: "08:30",
-                    endTime: "09:50",
-                    students: {
-                        'qr_01': 'Alex Chen (Black)',
-                        'qr_02': 'Bella Rodriguez (Black)',
-                        'qr_03': 'Carlos Sanchez (Black)',
-                        'qr_04': 'Diana Lee (Black)',
-                        'qr_05': 'Ethan Wright (Black)',
-                    }
-                },
-                {
-                    name: "Period 2",
-                    startTime: "10:00",
-                    endTime: "11:20",
-                    students: {
-                        'qr_01': 'Fiona Green (Black)',
-                        'qr_02': 'George Hall (Black)',
-                        'qr_03': 'Hannah King (Black)',
-                        'qr_04': 'Ian Scott (Black)',
-                        'qr_05': 'Julia Adams (Black)',
-                    }
-                },
-                {
-                    name: "Period 3",
-                    startTime: "11:30",
-                    endTime: "12:50",
-                    students: {
-                        'qr_01': 'Kevin Baker (Black)',
-                        'qr_02': 'Laura Nelson (Black)',
-                        'qr_03': 'Marcus Carter (Black)',
-                        'qr_04': 'Nina Mitchell (Black)',
-                        'qr_05': 'Oscar Perez (Black)',
-                    }
-                },
-                {
-                    name: "Period 4",
-                    startTime: "13:00",
-                    endTime: "14:20",
-                    students: {
-                        'qr_01': 'Peter Roberts (Black)',
-                        'qr_02': 'Quincy Turner (Black)',
-                        'qr_03': 'Rosa Phillips (Black)',
-                        'qr_04': 'Steven Campbell (Black)',
-                        'qr_05': 'Tanya Parker (Black)',
-                    }
-                },
-            ]
-        };
+		red: {
+			regular: [
+				// Your normal Red Day periods
+					{
+					   name: "Red 1 - Algebra",
+						startTime: "08:25",
+						endTime: "09:50",
+						students: {
+							'qr_01': 'Liam Baker',
+							'qr_02': 'Flynn Daniels',
+							'qr_03': 'Brayden Duke',
+							'qr_04': 'Dominic Entriken',
+							'qr_05': 'Charles Franklin',
+						}
+					},
+					{
+						name: "Red 2 - Algebra",
+						startTime: "10:40",
+						endTime: "12:00",
+						students: {
+							'qr_01': 'Emylene Youvella',
+							'qr_02': 'Teagen Andersen',
+							'qr_03': 'Samuel Brandon',
+							'qr_04': 'Molly Emery',
+							'qr_05': 'Leo Feltenstein',
+						}
+					},
+					{
+						name: "Red 3 - Pre-Algebra",
+						startTime: "12:50",
+						endTime: "14:10",
+						students: {
+							'qr_01': 'Kate Thomas',
+							'qr_02': 'Liam Jackson',
+							'qr_03': 'Mia White',
+							'qr_04': 'Noah Harris',
+							'qr_05': 'Olivia Martin',
+						}
+					},
+					{
+						name: "Red 4 - Prep",
+						startTime: "14:15",
+						endTime: "15:35",
+						students: {
+							'qr_01': 'Test Student R01',
+							'qr_02': 'Test Student R02',
+							'qr_03': 'Test Student R03',
+							'qr_04': 'Test Student R04',
+							'qr_05': 'Test Student R05',
+						}
+					},
+			],
+			late: [
+				// Your late start Red Day periods (adjusted times)
+				{
+					   name: "Red 1 - Algebra",
+						startTime: "09:35",
+						endTime: "10:50",
+						students: {
+							'qr_01': 'Liam Baker',
+							'qr_02': 'Flynn Daniels',
+							'qr_03': 'Brayden Duke',
+							'qr_04': 'Dominic Entriken',
+							'qr_05': 'Charles Franklin',
+						}
+					},
+					{
+						name: "Red 2 - Algebra",
+						startTime: "11:05",
+						endTime: "12:20",
+						students: {
+							'qr_01': 'Emylene Youvella',
+							'qr_02': 'Teagen Andersen',
+							'qr_03': 'Samuel Brandon',
+							'qr_04': 'Molly Emery',
+							'qr_05': 'Leo Feltenstein',
+						}
+					},
+					{
+						name: "Red 3 - Pre-Algebra",
+						startTime: "13:00",
+						endTime: "14:15",
+						students: {
+							'qr_01': 'Kate Thomas',
+							'qr_02': 'Liam Jackson',
+							'qr_03': 'Mia White',
+							'qr_04': 'Noah Harris',
+							'qr_05': 'Olivia Martin',
+						}
+					},
+					{
+						name: "Red 4 - Prep",
+						startTime: "14:20",
+						endTime: "15:35",
+						students: {
+							'qr_01': 'Test Student R01',
+							'qr_02': 'Test Student R02',
+							'qr_03': 'Test Student R03',
+							'qr_04': 'Test Student R04',
+							'qr_05': 'Test Student R05',
+						}
+					},
+			]
+		},
+		black: {
+			regular: [
+				// Your normal Black Day periods
+				{
+						name: "Black 1 - Prep",
+						startTime: "08:25",
+						endTime: "09:50",
+						students: {
+							'qr_01': 'Test Student R01',
+							'qr_02': 'Test Student R02',
+							'qr_03': 'Test Student R03',
+							'qr_04': 'Test Student R04',
+							'qr_05': 'Test Student R05',
+						}
+					},
+					{
+						name: "Black 2 - Geometry",
+						startTime: "10:40",
+						endTime: "12:00",
+						students: {
+							'qr_01': 'Jackson DuBose',
+							'qr_02': 'Logan Lane',
+							'qr_03': 'Violet Olsson',
+							'qr_04': 'Maren Linden',
+							'qr_05': 'Lauren Werner',
+						}
+					},
+					{
+						name: "Black 3 - Geometry",
+						startTime: "12:50",
+						endTime: "14:10",
+						students: {
+							'qr_01': 'Delilah Harper',
+							'qr_02': 'Kendall Opsahl',
+							'qr_03': 'Delaney Storck',
+							'qr_04': 'Treak Tasker',
+							'qr_05': 'Opal Vincent',
+						}
+					},
+					{
+						name: "Black 4 - Algebra",
+						startTime: "14:15",
+						endTime: "15:35",
+						students: {
+							'qr_01': 'Molly Child',
+							'qr_02': 'Kinsley Darling',
+							'qr_03': 'Ella Donnelly',
+							'qr_04': 'Alese Ewen Fox',
+							'qr_05': 'Harper Henry',
+						}
+					},
+			],
+			late: [
+				// Your late start Black Day periods
+				{
+						name: "Black 1 - Prep",
+						startTime: "09:35",
+						endTime: "10:50",
+						students: {
+							'qr_01': 'Test Student R01',
+							'qr_02': 'Test Student R02',
+							'qr_03': 'Test Student R03',
+							'qr_04': 'Test Student R04',
+							'qr_05': 'Test Student R05',
+						}
+					},
+					{
+						name: "Black 2 - Geometry",
+						startTime: "11:05",
+						endTime: "12:20",
+						students: {
+							'qr_01': 'Jackson DuBose',
+							'qr_02': 'Logan Lane',
+							'qr_03': 'Violet Olsson',
+							'qr_04': 'Maren Linden',
+							'qr_05': 'Lauren Werner',
+						}
+					},
+					{
+						name: "Black 3 - Geometry",
+						startTime: "13:00",
+						endTime: "14:15",
+						students: {
+							'qr_01': 'Delilah Harper',
+							'qr_02': 'Kendall Opsahl',
+							'qr_03': 'Delaney Storck',
+							'qr_04': 'Treak Tasker',
+							'qr_05': 'Opal Vincent',
+						}
+					},
+					{
+						name: "Black 4 - Algebra",
+						startTime: "14:20",
+						endTime: "15:35",
+						students: {
+							'qr_01': 'Molly Child',
+							'qr_02': 'Kinsley Darling',
+							'qr_03': 'Ella Donnelly',
+							'qr_04': 'Alese Ewen Fox',
+							'qr_05': 'Harper Henry',
+						}
+					},
+			]
+		}
+	};
 
         // Current active schedule
-        let activeSchedule = null;
+        let activeScheduleType = null; // 'red' or 'black'
+        let activeStartType = 'regular'; // 'regular' or 'late'
+        let activeSchedule = null; // Combined for backward compatibility
         let classSchedule = [];
 
         // ====================================
         // SCHEDULE SELECTION FUNCTIONS
         // ====================================
-        function selectSchedule(scheduleType) {
-            activeSchedule = scheduleType;
-            classSchedule = schedules[scheduleType];
+        function selectScheduleType(scheduleType) {
+            activeScheduleType = scheduleType;
+            updateSchedule();
+        }
+        
+        function selectStartType(startType) {
+            activeStartType = startType;
+            updateSchedule();
+        }
+        
+        function updateSchedule() {
+            if (!activeScheduleType) return;
+            
+            // Update combined schedule
+            activeSchedule = `${activeScheduleType}-${activeStartType}`;
+            
+            // Check if schedules have nested structure (regular/late)
+            if (schedules[activeScheduleType] && schedules[activeScheduleType].regular) {
+                // New structure with late start support
+                classSchedule = schedules[activeScheduleType][activeStartType] || schedules[activeScheduleType].regular;
+            } else {
+                // Old structure (backward compatible)
+                classSchedule = schedules[activeScheduleType];
+            }
             
             // Save to localStorage
-            localStorage.setItem('dashboardSchedule', scheduleType);
+            localStorage.setItem('dashboardScheduleType', activeScheduleType);
+            localStorage.setItem('dashboardStartType', activeStartType);
             
             // Hide modal
             document.getElementById('scheduleModal').style.display = 'none';
             
             // Update button states
-            document.getElementById('redOption').classList.remove('active', 'red');
-            document.getElementById('blackOption').classList.remove('active', 'black');
-            
-            if (scheduleType === 'red') {
-                document.getElementById('redOption').classList.add('active', 'red');
-            } else {
-                document.getElementById('blackOption').classList.add('active', 'black');
-            }
+            updateButtonStates();
             
             // Refresh display
             updatePeriodInfo();
+        }
+        
+        function updateButtonStates() {
+            // Update schedule type buttons
+            document.getElementById('redOption').classList.remove('active', 'red');
+            document.getElementById('blackOption').classList.remove('active', 'black');
+            
+            if (activeScheduleType === 'red') {
+                document.getElementById('redOption').classList.add('active', 'red');
+            } else if (activeScheduleType === 'black') {
+                document.getElementById('blackOption').classList.add('active', 'black');
+            }
+            
+            // Update start type buttons
+            document.getElementById('regularOption').classList.remove('active', 'regular');
+            document.getElementById('lateOption').classList.remove('active', 'late');
+            
+            if (activeStartType === 'regular') {
+                document.getElementById('regularOption').classList.add('active', 'regular');
+            } else if (activeStartType === 'late') {
+                document.getElementById('lateOption').classList.add('active', 'late');
+            }
         }
 
         // ====================================
@@ -602,7 +786,16 @@
                 const students = snapshot.val() || {};
                 
                 const periodSuffix = period.name.replace(/\s+/g, '_');
-                const schedulePrefix = activeSchedule + '_';
+                
+                // Build prefix with start type support
+                let schedulePrefix;
+                if (schedules[activeScheduleType] && schedules[activeScheduleType].regular) {
+                    // New structure with late start
+                    schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
+                } else {
+                    // Old structure (backward compatible)
+                    schedulePrefix = `${activeScheduleType}_`;
+                }
                 
                 // Find all students from that period who are still "out"
                 const updates = {};
@@ -808,21 +1001,32 @@
         const studentsRef = database.ref('students');
 
         studentsRef.on('value', (snapshot) => {
-            if (!activeSchedule) return; 
+            if (!activeScheduleType) return; 
             
             const firebaseData = snapshot.val() || {};
             const grid = document.getElementById('studentsGrid');
             const currentPeriod = getCurrentPeriod();
 
             if (!currentPeriod) {
-                grid.innerHTML = `<div class="no-students">No active class period for ${activeSchedule === 'red' ? '🔴 Red Day' : '⚫ Black Day'}</div>`;
+                const dayLabel = activeScheduleType === 'red' ? '🔴 Red Day' : '⚫ Black Day';
+                const startLabel = activeStartType === 'late' ? '🌅 Late Start' : '⏰ Regular';
+                grid.innerHTML = `<div class="no-students">No active class period for ${dayLabel} ${startLabel}</div>`;
                 updateStats({});
                 return;
             }
 
             const expectedStudents = currentPeriod.students; 
             const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
-            const schedulePrefix = activeSchedule + '_';
+            
+            // Build prefix with start type support
+            let schedulePrefix;
+            if (schedules[activeScheduleType] && schedules[activeScheduleType].regular) {
+                // New structure with late start
+                schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
+            } else {
+                // Old structure (backward compatible)
+                schedulePrefix = `${activeScheduleType}_`;
+            }
 
             let displayStudents = {};
             let inCount = 0;
@@ -862,16 +1066,21 @@
 
         // Check if schedule was previously selected
         window.addEventListener('load', () => {
-            const savedSchedule = localStorage.getItem('dashboardSchedule');
-            if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
-                selectSchedule(savedSchedule);
+            const savedScheduleType = localStorage.getItem('dashboardScheduleType');
+            const savedStartType = localStorage.getItem('dashboardStartType') || 'regular';
+            
+            if (savedScheduleType && (savedScheduleType === 'red' || savedScheduleType === 'black')) {
+                activeScheduleType = savedScheduleType;
+                activeStartType = savedStartType;
+                updateSchedule();
             } else {
                 document.getElementById('scheduleModal').style.display = 'flex';
             }
         });
 
         window.resetStudent = resetStudent;
-        window.selectSchedule = selectSchedule;
+        window.selectScheduleType = selectScheduleType;
+        window.selectStartType = selectStartType;
     </script>
 </body>
 </html>
