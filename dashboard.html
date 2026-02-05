@@ -306,20 +306,27 @@
 </head>
 <body>
     <!-- Schedule Selection Modal -->
-    <div class="modal-overlay" id="scheduleModal">
-        <div class="modal-content">
-            <h2>🗓️ Select Today's Schedule</h2>
-            <p>Which schedule are you viewing today?</p>
+<div class="modal-overlay" id="scheduleModal">
+    <div class="modal-content">
+        <div id="step1">
+            <h2>🗓️ Select Day</h2>
+            <p>Which day color are you viewing?</p>
             <div class="schedule-buttons">
-                <button class="schedule-button red" onclick="selectSchedule('red')">
-                    🔴 Red Day
-                </button>
-                <button class="schedule-button black" onclick="selectSchedule('black')">
-                    ⚫ Black Day
-                </button>
+                <button class="schedule-button red" onclick="setDayType('red')">🔴 Red Day</button>
+                <button class="schedule-button black" onclick="setDayType('black')">⚫ Black Day</button>
             </div>
         </div>
+        <div id="step2" style="display: none;">
+            <h2>⏰ Select Timing</h2>
+            <p>Is today a regular day or Wednesday delayed start?</p>
+            <div class="schedule-buttons" style="flex-direction: column;">
+                <button class="schedule-button" style="background: #4f46e5; color: white; margin-bottom: 10px;" onclick="finalizeSchedule('regular')">Regular Schedule</button>
+                <button class="schedule-button" style="background: #fbbf24; color: black;" onclick="finalizeSchedule('wednesday')">Wednesday (Delayed)</button>
+            </div>
+            <button onclick="resetSelection()" style="margin-top: 15px; background: none; border: none; color: #6b7280; cursor: pointer;">← Go Back</button>
+        </div>
     </div>
+</div>
     <div class="header">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <h1>📊 Classroom Status Dashboard</h1>
@@ -379,116 +386,101 @@
         // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
         // ====================================
         // This should EXACTLY match the schedule in scanner.html
-        const schedules = {
-            red: [
-                {
-                   name: "Algebra - Red 1",
-                    startTime: "08:25",
-                    endTime: "09:45",
-                    students: {
-                        'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Algebra - Red 2",
-                    startTime: "10:40",
-                    endTime: "12:00",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Pre-Algebra - Red 3",
-                   startTime: "12:50",
-                    endTime: "14:10",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-            ],
-            black: [
-                {
-                   name: "Geometry - Black 2",
-                    startTime: "10:40",
-                    endTime: "12:00",
-                    students: {
-                        'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Geometry - Black 3",
-                   startTime: "12:50",
-                    endTime: "14:10",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-                {
-                    name: "Algebra - Black 4",
-                   startTime: "14:15",
-                    endTime: "15:35",
-                    students: {
-						'qr_01': 'Student 1',
-                        'qr_02': 'Student 2',
-                        'qr_03': 'Student 3',
-                        'qr_04': 'Student 4',
-                        'qr_05': 'Student 5',
-                    }
-                },
-            ],
-        };
+        To update the dashboard.html file to support the new Wednesday schedule and fix the selection issues, you need to modify three main areas: the HTML Modal (to allow for two-step selection), the JavaScript schedules object, and the selection logic functions.
+1. Update the HTML Modal
+
+Replace the existing scheduleModal (found near line 241) with this version that includes a "Step 2" for timing selection:
+HTML
+
+<div class="modal-overlay" id="scheduleModal">
+    <div class="modal-content">
+        <div id="step1">
+            <h2>🗓️ Select Day</h2>
+            <p>Which day color are you viewing?</p>
+            <div class="schedule-buttons">
+                <button class="schedule-button red" onclick="setDayType('red')">🔴 Red Day</button>
+                <button class="schedule-button black" onclick="setDayType('black')">⚫ Black Day</button>
+            </div>
+        </div>
+        <div id="step2" style="display: none;">
+            <h2>⏰ Select Timing</h2>
+            <p>Is today a regular day or Wednesday delayed start?</p>
+            <div class="schedule-buttons" style="flex-direction: column;">
+                <button class="schedule-button" style="background: #4f46e5; color: white; margin-bottom: 10px;" onclick="finalizeSchedule('regular')">Regular Schedule</button>
+                <button class="schedule-button" style="background: #fbbf24; color: black;" onclick="finalizeSchedule('wednesday')">Wednesday (Delayed)</button>
+            </div>
+            <button onclick="resetSelection()" style="margin-top: 15px; background: none; border: none; color: #6b7280; cursor: pointer;">← Go Back</button>
+        </div>
+    </div>
+</div>
+
+2. Update the schedules Object
+
+Delete the old const schedules block (lines 351–425) and replace it with this nested version that includes Wednesday times and fixes the syntax errors (double commas) found in your original file:
+JavaScript
+
+const schedules = {
+    red: {
+        regular: [
+            { name: "Algebra - Red 1", startTime: "08:25", endTime: "09:45", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Algebra - Red 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Pre-Algebra - Red 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+        ],
+        wednesday: [
+            { name: "Algebra - Red 1", startTime: "09:25", endTime: "10:30", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Algebra - Red 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Pre-Algebra - Red 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+        ]
+    },
+    black: {
+        regular: [
+            { name: "Geometry - Black 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Geometry - Black 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Algebra - Black 4", startTime: "14:15", endTime: "15:35", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+        ],
+        wednesday: [
+            { name: "Geometry - Black 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Geometry - Black 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
+            { name: "Algebra - Black 4", startTime: "14:10", endTime: "15:15", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
+        ]
+    }
+};
 
         // Current active schedule
-        let activeSchedule = null;
-        let classSchedule = [];
+    	let selectedDayColor = null;
+		let selectedTiming = null;
 
         // ====================================
         // SCHEDULE SELECTION FUNCTIONS
         // ====================================
-        function selectSchedule(scheduleType) {
-            activeSchedule = scheduleType;
-            classSchedule = schedules[scheduleType];
-            
-            // Save to localStorage
-            localStorage.setItem('dashboardSchedule', scheduleType);
-            
-            // Hide modal
-            document.getElementById('scheduleModal').style.display = 'none';
-            
-            // Update button states
-            document.getElementById('redOption').classList.remove('active', 'red');
-            document.getElementById('blackOption').classList.remove('active', 'black');
-            
-            if (scheduleType === 'red') {
-                document.getElementById('redOption').classList.add('active', 'red');
-            } else {
-                document.getElementById('blackOption').classList.add('active', 'black');
-            }
-            
-            // Refresh display
-            updatePeriodInfo();
-        }
-
+		      function setDayType(color) {
+		    selectedDayColor = color;
+		    document.getElementById('step1').style.display = 'none';
+		    document.getElementById('step2').style.display = 'block';
+		}
+		
+		function resetSelection() {
+		    document.getElementById('step1').style.display = 'block';
+		    document.getElementById('step2').style.display = 'none';
+		}
+		
+		function finalizeSchedule(timing) {
+		    selectedTiming = timing;
+		    activeSchedule = selectedDayColor;
+		    classSchedule = schedules[selectedDayColor][timing];
+		    
+		    // Save both values to localStorage
+		    localStorage.setItem('dashboardSchedule', selectedDayColor);
+		    localStorage.setItem('dashboardTiming', timing);
+		    
+		    document.getElementById('scheduleModal').style.display = 'none';
+		    
+		    // Update UI Indicators
+		    document.getElementById('redOption').classList.toggle('active red', selectedDayColor === 'red');
+		    document.getElementById('blackOption').classList.toggle('active black', selectedDayColor === 'black');
+		    
+		    updatePeriodInfo();
+		}
         // ====================================
         // HELPER FUNCTION: Get Current Period
         // ====================================
@@ -837,14 +829,17 @@
         });
 
         // Check if schedule was previously selected
-        window.addEventListener('load', () => {
-            const savedSchedule = localStorage.getItem('dashboardSchedule');
-            if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
-                selectSchedule(savedSchedule);
-            } else {
-                document.getElementById('scheduleModal').style.display = 'flex';
-            }
-        });
+		  window.addEventListener('load', () => {
+		    const savedSchedule = localStorage.getItem('dashboardSchedule');
+		    const savedTiming = localStorage.getItem('dashboardTiming') || 'regular';
+		    
+		    if (savedSchedule && (savedSchedule === 'red' || savedSchedule === 'black')) {
+		        selectedDayColor = savedSchedule;
+		        finalizeSchedule(savedTiming);
+		    } else {
+		        document.getElementById('scheduleModal').style.display = 'flex';
+		    }
+		});
 
         window.resetStudent = resetStudent;
         window.selectSchedule = selectSchedule;
