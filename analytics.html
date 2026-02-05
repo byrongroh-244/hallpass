@@ -160,6 +160,21 @@
             background: #047857;
         }
         
+        .reset-button {
+            padding: 12px 24px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        .reset-button:hover {
+            background: #b91c1c;
+        }
+        
         .schedule-selector {
             display: inline-flex;
             gap: 10px;
@@ -234,6 +249,12 @@
         
         <div class="date-filter">
             <label>
+                <span>Student Filter:</span>
+                <select id="studentFilter" onchange="loadAnalytics()">
+                    <option value="all">All Students</option>
+                </select>
+            </label>
+            <label>
                 <span>Start Date:</span>
                 <input type="date" id="startDate">
             </label>
@@ -253,6 +274,7 @@
             </label>
             <button onclick="loadAnalytics()">🔄 Refresh</button>
             <button class="export-button" onclick="exportToCSV()">📥 Export CSV</button>
+            <button class="reset-button" onclick="confirmResetData()">🗑️ Reset Data</button>
         </div>
         
         <div class="period-filter" id="periodFilter" style="display: none;"></div>
@@ -283,6 +305,35 @@
             <div class="subtext">Number of trips out</div>
         </div>
     </div>
+    
+    <div class="section" id="individualStatsSection" style="display: none;">
+        <h2>👤 Individual Student Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Daily Total</h3>
+                <div class="value" id="studentDailyTotal">--</div>
+                <div class="subtext">Time out today</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Weekly Total</h3>
+                <div class="value" id="studentWeeklyTotal">--</div>
+                <div class="subtext">Time out this week</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Average Per Day</h3>
+                <div class="value" id="studentDailyAvg">--</div>
+                <div class="subtext">In selected range</div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Rolling Average</h3>
+                <div class="value" id="studentRollingAvg">--</div>
+                <div class="subtext">Last 2 weeks</div>
+            </div>
+        </div>
+    </div>
 
     <div class="section">
         <h2>📋 Student Breakdown</h2>
@@ -297,14 +348,13 @@
     <script>
         // REPLACE WITH YOUR FIREBASE CONFIG
         const firebaseConfig = {
-            	apiKey: "AIzaSyDBD5CIAmEk90zPZ4h1CYkqqj_hmWi0-8Q",
-			authDomain: "hallpass-632be.firebaseapp.com",
-			databaseURL: "https://hallpass-632be-default-rtdb.firebaseio.com",
-			projectId: "hallpass-632be",
-			storageBucket: "hallpass-632be.firebasestorage.app",
-			messagingSenderId: "300025661409",
-			appId: "1:300025661409:web:1fe1931bbbe6d7a0ceb4a0",
-			measurementId: "G-JL44XNPHEW"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         firebase.initializeApp(firebaseConfig);
@@ -380,6 +430,7 @@
         async function loadAnalytics() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
+            const selectedStudent = document.getElementById('studentFilter').value;
             
             if (!startDate || !endDate) {
                 alert('Please select both start and end dates');
@@ -391,6 +442,9 @@
                 const logs = snapshot.val() || {};
                 allLogs = Object.values(logs);
                 
+                // Populate student filter dropdown if not already done
+                populateStudentFilter(allLogs);
+                
                 // Filter by date range
                 const filtered = allLogs.filter(log => {
                     if (!log.date) return false;
@@ -400,7 +454,7 @@
                 // Filter by schedule
                 const scheduleFiltered = filtered.filter(log => {
                     if (activeSchedule === 'both') return true;
-                    return log.schedule === activeSchedule;
+                    return log.schedule === activeSchedule || (log.schedule && log.schedule.startsWith(activeSchedule));
                 });
                 
                 // Get unique periods for filter
@@ -411,7 +465,18 @@
                 updatePeriodFilter(periods);
                 
                 // Filter by selected periods
-                const finalFiltered = scheduleFiltered.filter(log => selectedPeriods.has(log.period));
+                let finalFiltered = scheduleFiltered.filter(log => selectedPeriods.has(log.period));
+                
+                // Filter by selected student (if not "all")
+                if (selectedStudent !== 'all') {
+                    finalFiltered = finalFiltered.filter(log => log.studentName === selectedStudent);
+                    // Show individual stats section
+                    document.getElementById('individualStatsSection').style.display = 'block';
+                    calculateIndividualStats(selectedStudent, finalFiltered, startDate, endDate);
+                } else {
+                    // Hide individual stats section
+                    document.getElementById('individualStatsSection').style.display = 'none';
+                }
                 
                 // Calculate statistics
                 calculateStats(finalFiltered);
@@ -422,6 +487,73 @@
                 console.error('Error loading analytics:', error);
                 alert('Error loading data. Please try again.');
             }
+        }
+        
+        function populateStudentFilter(logs) {
+            const studentFilter = document.getElementById('studentFilter');
+            const currentValue = studentFilter.value;
+            
+            // Get unique student names
+            const students = [...new Set(logs.map(log => log.studentName))].filter(Boolean).sort();
+            
+            // Only update if the list has changed
+            const currentOptions = Array.from(studentFilter.options).map(opt => opt.value);
+            const newOptions = ['all', ...students];
+            
+            if (JSON.stringify(currentOptions) !== JSON.stringify(newOptions)) {
+                studentFilter.innerHTML = '<option value="all">All Students</option>';
+                students.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student;
+                    option.textContent = student;
+                    studentFilter.appendChild(option);
+                });
+                
+                // Restore previous selection if it still exists
+                if (newOptions.includes(currentValue)) {
+                    studentFilter.value = currentValue;
+                }
+            }
+        }
+        
+        function calculateIndividualStats(studentName, logs, startDate, endDate) {
+            const completedTrips = logs.filter(log => 
+                log.action === 'in' || log.action === 'auto-reset' || log.action === 'manual-reset'
+            );
+            
+            // Daily total (today)
+            const today = new Date().toISOString().split('T')[0];
+            const todayTrips = completedTrips.filter(log => log.date === today);
+            const dailyTotal = todayTrips.reduce((sum, log) => sum + (log.duration || 0), 0);
+            
+            // Weekly total (last 7 days)
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const weekAgoStr = weekAgo.toISOString().split('T')[0];
+            const weekTrips = completedTrips.filter(log => log.date >= weekAgoStr);
+            const weeklyTotal = weekTrips.reduce((sum, log) => sum + (log.duration || 0), 0);
+            
+            // Average per day in selected range
+            const dates = new Set(completedTrips.map(log => log.date));
+            const numDays = dates.size || 1;
+            const totalTime = completedTrips.reduce((sum, log) => sum + (log.duration || 0), 0);
+            const dailyAvg = totalTime / numDays;
+            
+            // Rolling 2-week average
+            const twoWeeksAgo = new Date();
+            twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+            const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0];
+            const twoWeekTrips = completedTrips.filter(log => log.date >= twoWeeksAgoStr);
+            const twoWeekDates = new Set(twoWeekTrips.map(log => log.date));
+            const twoWeekDays = twoWeekDates.size || 1;
+            const twoWeekTotal = twoWeekTrips.reduce((sum, log) => sum + (log.duration || 0), 0);
+            const rollingAvg = twoWeekTotal / twoWeekDays;
+            
+            // Update display
+            document.getElementById('studentDailyTotal').textContent = formatDurationHours(dailyTotal);
+            document.getElementById('studentWeeklyTotal').textContent = formatDurationHours(weeklyTotal);
+            document.getElementById('studentDailyAvg').textContent = formatDurationHours(dailyAvg);
+            document.getElementById('studentRollingAvg').textContent = formatDurationHours(rollingAvg);
         }
 
         function updatePeriodFilter(periods) {
@@ -597,13 +729,15 @@
         function exportToCSV() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
+            const selectedStudent = document.getElementById('studentFilter').value;
             
-            const filtered = allLogs.filter(log => {
+            let filtered = allLogs.filter(log => {
                 if (!log.date) return false;
                 const inRange = log.date >= startDate && log.date <= endDate;
-                const scheduleMatch = activeSchedule === 'both' || log.schedule === activeSchedule;
+                const scheduleMatch = activeSchedule === 'both' || log.schedule === activeSchedule || (log.schedule && log.schedule.startsWith(activeSchedule));
                 const periodMatch = selectedPeriods.has(log.period);
-                return inRange && scheduleMatch && periodMatch;
+                const studentMatch = selectedStudent === 'all' || log.studentName === selectedStudent;
+                return inRange && scheduleMatch && periodMatch && studentMatch;
             });
             
             let csv = 'Date,Student,QR Code,Period,Schedule,Action,Duration (minutes)\n';
@@ -617,8 +751,71 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `student-analytics-${startDate}-to-${endDate}.csv`;
+            const studentSuffix = selectedStudent !== 'all' ? `-${selectedStudent.replace(/\s+/g, '-')}` : '';
+            a.download = `student-analytics-${startDate}-to-${endDate}${studentSuffix}.csv`;
             a.click();
+        }
+        
+        function confirmResetData() {
+            const confirmation = confirm(
+                '⚠️ WARNING: This will permanently delete ALL log data.\n\n' +
+                'This includes:\n' +
+                '• All student check-in/check-out logs\n' +
+                '• All historical analytics data\n' +
+                '• All duration records\n\n' +
+                'Current student status (in/out) will be preserved.\n\n' +
+                'This action CANNOT be undone!\n\n' +
+                'Are you sure you want to continue?'
+            );
+            
+            if (!confirmation) return;
+            
+            const secondConfirmation = confirm(
+                '🚨 FINAL CONFIRMATION\n\n' +
+                'Type "DELETE" in the next prompt to proceed with data deletion.'
+            );
+            
+            if (!secondConfirmation) return;
+            
+            const userInput = prompt('Type DELETE (all caps) to confirm:');
+            
+            if (userInput === 'DELETE') {
+                resetAllData();
+            } else {
+                alert('Data reset cancelled. Text did not match.');
+            }
+        }
+        
+        async function resetAllData() {
+            try {
+                // Show progress
+                document.getElementById('studentTable').innerHTML = '<div class="loading">Deleting all log data...</div>';
+                document.getElementById('dailyTable').innerHTML = '<div class="loading">Please wait...</div>';
+                
+                // Delete all logs
+                await database.ref('logs').remove();
+                
+                // Clear local cache
+                allLogs = [];
+                
+                // Reset UI
+                document.getElementById('totalTime').textContent = '0m';
+                document.getElementById('avgPerStudent').textContent = '0m';
+                document.getElementById('dailyAvg').textContent = '0m';
+                document.getElementById('totalExits').textContent = '0';
+                
+                document.getElementById('studentTable').innerHTML = '<div class="loading">No data - all logs have been deleted</div>';
+                document.getElementById('dailyTable').innerHTML = '<div class="loading">No data - all logs have been deleted</div>';
+                
+                // Reset student filter
+                document.getElementById('studentFilter').innerHTML = '<option value="all">All Students</option>';
+                
+                alert('✅ All log data has been permanently deleted.\n\nCurrent student in/out status has been preserved.');
+                
+            } catch (error) {
+                console.error('Error resetting data:', error);
+                alert('❌ Error deleting data. Please try again or check Firebase permissions.');
+            }
         }
 
         // Initialize
