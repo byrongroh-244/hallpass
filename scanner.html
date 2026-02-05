@@ -632,6 +632,12 @@
         // ====================================
         const cooldownPeriod = 5000; // 5 seconds in milliseconds
         const lastScanTimes = {};
+        
+        // Debounce to prevent same QR code from being scanned multiple times rapidly
+        let lastScannedCode = null;
+        let lastScannedTime = 0;
+        const scanDebounce = 2000; // 2 seconds - ignore same code if scanned within this time
+        let isProcessingScan = false; // Flag to prevent overlapping scans
 
         // ====================================
         // AUDIO FEEDBACK
@@ -746,6 +752,26 @@
         // SCAN PROCESSING
         // ====================================
         async function processStudentScan(qrCode) {
+            // Prevent overlapping scan processing
+            if (isProcessingScan) {
+                console.log('Already processing a scan, ignoring...');
+                return;
+            }
+            
+            // Debounce check - prevent same QR code from triggering multiple times rapidly
+            const now = Date.now();
+            if (lastScannedCode === qrCode && (now - lastScannedTime < scanDebounce)) {
+                console.log('Debounced: Same QR code scanned too quickly');
+                return; // Ignore this scan
+            }
+            
+            // Set processing flag
+            isProcessingScan = true;
+            
+            // Update debounce tracking
+            lastScannedCode = qrCode;
+            lastScannedTime = now;
+            
             // Get student info based on current time
             const studentInfo = getStudentInfo(qrCode);
             
@@ -753,12 +779,13 @@
             if (studentInfo.error) {
                 playErrorBuzz();
                 showError(studentInfo.error);
+                isProcessingScan = false; // Clear flag before returning
                 return;
             }
 
             // Check cooldown - Stay silent during the 5-second buffer
-            const now = Date.now();
             if (lastScanTimes[studentInfo.uniqueId] && (now - lastScanTimes[studentInfo.uniqueId] < cooldownPeriod)) {
+                isProcessingScan = false; // Clear flag before returning
                 return; // Do nothing, just exit the function
             }
 
@@ -816,6 +843,9 @@
                 console.error('Error updating student:', error);
                 playErrorBuzz();
                 showError('Database error - please try again');
+            } finally {
+                // Always clear the processing flag
+                isProcessingScan = false;
             }
         }
 
