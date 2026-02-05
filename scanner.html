@@ -313,24 +313,19 @@
 <body>
     <!-- Schedule Selection Modal -->
     <div class="modal-overlay" id="scheduleModal">
-    <div class="modal-content">
-        <div id="step1">
-            <h2>🗓️ Select Day</h2>
+        <div class="modal-content">
+            <h2>🗓️ Select Today's Schedule</h2>
+            <p>Which schedule are you using today?</p>
             <div class="schedule-buttons">
-                <button class="schedule-button red" onclick="setDayType('red')">🔴 Red Day</button>
-                <button class="schedule-button black" onclick="setDayType('black')">⚫ Black Day</button>
+                <button class="schedule-button red" onclick="selectSchedule('red')">
+                    🔴 Red Day
+                </button>
+                <button class="schedule-button black" onclick="selectSchedule('black')">
+                    ⚫ Black Day
+                </button>
             </div>
-        </div>
-        <div id="step2" style="display: none;">
-            <h2>⏰ Select Timing</h2>
-            <div class="schedule-buttons">
-                <button class="schedule-button" style="background: #4f46e5; color: white;" onclick="finalizeSchedule('regular')">Regular Schedule</button>
-                <button class="schedule-button" style="background: #fbbf24; color: black;" onclick="finalizeSchedule('wednesday')">Wednesday (Delayed)</button>
-            </div>
-            <button onclick="resetSelection()" style="margin-top: 15px; background: none; border: none; color: #6b7280; cursor: pointer;">← Go Back</button>
         </div>
     </div>
-</div>
     
     <!-- Hidden Triple-Tap Menu -->
     <div class="hidden-menu" id="hiddenMenu">
@@ -389,71 +384,160 @@
         // ====================================
         // DUAL SCHEDULE SYSTEM (Red Day / Black Day)
         // ====================================
-      
-		// 1. Updated State Variables
-		let selectedDayColor = null; // 'red' or 'black'
-		let selectedTiming = null;   // 'regular' or 'wednesday'
-		let activeSchedule = null;   // used for Firebase paths
-		let classSchedule = [];      // current periods
-		
-		// 2. Updated Nested Schedule Object
-		const schedules = {
-		    red: {
-		        regular: [
-		            { name: "Algebra - Red 1", startTime: "08:25", endTime: "09:45", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Algebra - Red 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Pre-Algebra - Red 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
-		        ],
-		        wednesday: [
-		            { name: "Algebra - Red 1", startTime: "09:25", endTime: "10:30", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Algebra - Red 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Pre-Algebra - Red 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
-		        ]
-		    },
-		    black: {
-		        regular: [
-		            { name: "Geometry - Black 2", startTime: "10:40", endTime: "12:00", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Geometry - Black 3", startTime: "12:50", endTime: "14:10", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Algebra - Black 4", startTime: "14:15", endTime: "15:35", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
-		        ],
-		        wednesday: [
-		            { name: "Geometry - Black 2", startTime: "11:15", endTime: "12:20", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Geometry - Black 3", startTime: "13:00", endTime: "14:05", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} },
-		            { name: "Algebra - Black 4", startTime: "14:10", endTime: "15:15", students: {'qr_01': 'Student 1', 'qr_02': 'Student 2', 'qr_03': 'Student 3', 'qr_04': 'Student 4', 'qr_05': 'Student 5'} }
-		        ]
-		    }
-		};
+        const schedules = {
+            red: [
+                {
+                   name: "Algebra Red 1",
+                    startTime: "00:01",
+                    endTime: "00:59",
+                    students: {
+                        'qr_01': 'Alice Johnson',
+                        'qr_02': 'Bob Smith',
+                        'qr_03': 'Carol Williams (Red)',
+                        'qr_04': 'David Brown (Red)',
+                        'qr_05': 'Emma Davis (Red)',
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "23:11",
+                    endTime: "23:15",
+                    students: {
+                        'qr_01': 'Frank Miller (Red)',
+                        'qr_02': 'Grace Wilson (Red)',
+                        'qr_03': 'Henry Moore (Red)',
+                        'qr_04': 'Iris Taylor (Red)',
+                        'qr_05': 'Jack Anderson (Red)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kate Thomas (Red)',
+                        'qr_02': 'Liam Jackson (Red)',
+                        'qr_03': 'Mia White (Red)',
+                        'qr_04': 'Noah Harris (Red)',
+                        'qr_05': 'Olivia Martin (Red)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Paul Thompson (Red)',
+                        'qr_02': 'Quinn Garcia (Red)',
+                        'qr_03': 'Rachel Martinez (Red)',
+                        'qr_04': 'Sam Robinson (Red)',
+                        'qr_05': 'Tina Clark (Red)',
+                    }
+                },
+            ],
+            black: [
+                {
+                    name: "Period 1",
+                    startTime: "08:30",
+                    endTime: "09:50",
+                    students: {
+                        'qr_01': 'Alex Chen (Black)',
+                        'qr_02': 'Bella Rodriguez (Black)',
+                        'qr_03': 'Carlos Sanchez (Black)',
+                        'qr_04': 'Diana Lee (Black)',
+                        'qr_05': 'Ethan Wright (Black)',
+                    }
+                },
+                {
+                    name: "Period 2",
+                    startTime: "10:00",
+                    endTime: "11:20",
+                    students: {
+                        'qr_01': 'Fiona Green (Black)',
+                        'qr_02': 'George Hall (Black)',
+                        'qr_03': 'Hannah King (Black)',
+                        'qr_04': 'Ian Scott (Black)',
+                        'qr_05': 'Julia Adams (Black)',
+                    }
+                },
+                {
+                    name: "Period 3",
+                    startTime: "11:30",
+                    endTime: "12:50",
+                    students: {
+                        'qr_01': 'Kevin Baker (Black)',
+                        'qr_02': 'Laura Nelson (Black)',
+                        'qr_03': 'Marcus Carter (Black)',
+                        'qr_04': 'Nina Mitchell (Black)',
+                        'qr_05': 'Oscar Perez (Black)',
+                    }
+                },
+                {
+                    name: "Period 4",
+                    startTime: "13:00",
+                    endTime: "14:20",
+                    students: {
+                        'qr_01': 'Peter Roberts (Black)',
+                        'qr_02': 'Quincy Turner (Black)',
+                        'qr_03': 'Rosa Phillips (Black)',
+                        'qr_04': 'Steven Campbell (Black)',
+                        'qr_05': 'Tanya Parker (Black)',
+                    }
+                },
+            ]
+        };
+
+        // Current active schedule (will be set by user selection)
+        let activeSchedule = null;
+        let classSchedule = [];
 
         // ====================================
         // SCHEDULE SELECTION FUNCTIONS
         // ====================================
-      	let activeSchedule = null;
-		let classSchedule = [];
-		
-		// 3. Updated Two-Step Selection Logic
-		function setDayType(color) {
-			selectedDayColor = color;
-			document.getElementById('step1').style.display = 'none';
-			document.getElementById('step2').style.display = 'block';
-		}
-		
-		function finalizeSchedule(timing) {
-			selectedTiming = timing;
-			activeSchedule = selectedDayColor;
-			classSchedule = schedules[selectedDayColor][timing];
-			
-			localStorage.setItem('activeSchedule', selectedDayColor);
-			localStorage.setItem('selectedTiming', timing);
-			
-			document.getElementById('scheduleModal').style.display = 'none';
-			updateScheduleIndicator();
-			startScanner();
-		}
-		
-		function resetSelection() {
-			document.getElementById('step1').style.display = 'block';
-			document.getElementById('step2').style.display = 'none';
-		}
+        function selectSchedule(scheduleType) {
+            activeSchedule = scheduleType;
+            classSchedule = schedules[scheduleType];
+            
+            // Save to localStorage
+            localStorage.setItem('activeSchedule', scheduleType);
+            
+            // Hide modal
+            document.getElementById('scheduleModal').style.display = 'none';
+            
+            // Update indicator
+            updateScheduleIndicator();
+            
+            // Start scanner
+            startScanner();
+        }
+
+        function updateScheduleIndicator() {
+            const indicator = document.getElementById('scheduleIndicator');
+            const displayText = document.getElementById('currentScheduleDisplay');
+            
+            if (activeSchedule === 'red') {
+                indicator.textContent = '🔴 Red Day';
+                indicator.className = 'schedule-indicator red';
+                if (displayText) {
+                    displayText.textContent = '🔴 Red Day';
+                    displayText.className = 'current-schedule-value red';
+                }
+            } else if (activeSchedule === 'black') {
+                indicator.textContent = '⚫ Black Day';
+                indicator.className = 'schedule-indicator black';
+                if (displayText) {
+                    displayText.textContent = '⚫ Black Day';
+                    displayText.className = 'current-schedule-value black';
+                }
+            }
+        }
+
+        function changeSchedule() {
+            // Show modal again
+            document.getElementById('scheduleModal').style.display = 'flex';
+            closeHiddenMenu();
+        }
+
         // ====================================
         // TRIPLE-TAP MENU FUNCTIONS
         // ====================================
@@ -861,5 +945,3 @@
     </script>
 </body>
 </html>
-
-
