@@ -718,6 +718,31 @@
         }
 
         // ====================================
+        // LOGGING FUNCTION
+        // ====================================
+        async function logEvent(studentInfo, action, outTimestamp, inTimestamp, duration) {
+            try {
+                const logRef = database.ref('logs').push();
+                const logData = {
+                    studentName: studentInfo.studentName,
+                    qrCode: studentInfo.qrCode,
+                    period: studentInfo.periodName,
+                    schedule: studentInfo.schedule,
+                    action: action, // 'out', 'in', or 'auto-reset'
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+                    outTime: outTimestamp || null,
+                    inTime: inTimestamp || null,
+                    duration: duration || null // in milliseconds
+                };
+                
+                await logRef.set(logData);
+            } catch (error) {
+                console.error('Error logging event:', error);
+            }
+        }
+
+        // ====================================
         // SCAN PROCESSING
         // ====================================
         async function processStudentScan(qrCode) {
@@ -752,19 +777,32 @@
                         period: studentInfo.periodName,
                         schedule: studentInfo.schedule,
                         status: 'out',
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        outTimestamp: firebase.database.ServerValue.TIMESTAMP
                     });
+                    
+                    // Log the "out" event
+                    await logEvent(studentInfo, 'out', Date.now(), null, null);
+                    
                 } else {
                     // Student is currently OUT, mark them IN
                     newStatus = 'in';
+                    const outTime = currentData.outTimestamp || currentData.timestamp;
+                    const inTime = Date.now();
+                    const duration = outTime ? (inTime - outTime) : null;
+                    
                     await studentRef.set({
                         name: studentInfo.studentName,
                         qrCode: studentInfo.qrCode,
                         period: studentInfo.periodName,
                         schedule: studentInfo.schedule,
                         status: 'in',
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        outTimestamp: null
                     });
+                    
+                    // Log the "in" event with duration
+                    await logEvent(studentInfo, 'in', outTime, inTime, duration);
                 }
 
                 // Update cooldown tracker
