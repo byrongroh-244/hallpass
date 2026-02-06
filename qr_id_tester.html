@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code ID Tester</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #4f46e5;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .settings {
+            padding: 20px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        
+        .setting-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-group label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            background: white;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .button-group button:hover {
+            border-color: #4f46e5;
+        }
+        
+        .button-group button.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        
+        .button-group button.active.red {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+        
+        .button-group button.active.black {
+            background: #1f2937;
+            border-color: #1f2937;
+        }
+        
+        #reader {
+            width: 100%;
+            border: none;
+        }
+        
+        .results {
+            padding: 30px;
+        }
+        
+        .result-box {
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4f46e5;
+        }
+        
+        .result-box h3 {
+            font-size: 14px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .result-box .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        
+        .result-box.success {
+            border-left-color: #10b981;
+            background: #d1fae5;
+        }
+        
+        .result-box.error {
+            border-left-color: #dc2626;
+            background: #fee2e2;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-item {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .info-item label {
+            font-size: 12px;
+            color: #6b7280;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .info-item value {
+            font-size: 14px;
+            color: #1f2937;
+            font-weight: 600;
+        }
+        
+        .copy-button {
+            width: 100%;
+            padding: 12px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+        
+        .copy-button:hover {
+            background: #4338ca;
+        }
+        
+        .copy-button:active {
+            transform: scale(0.98);
+        }
+        
+        .copy-button.copied {
+            background: #10b981;
+        }
+        
+        .scan-history {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+        }
+        
+        .scan-history h2 {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        
+        .history-item {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #374151;
+        }
+        
+        .clear-history {
+            padding: 8px 16px;
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .clear-history:hover {
+            background: #4b5563;
+        }
+        
+        .waiting {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            font-size: 16px;
+        }
+        
+        .time-display {
+            background: #fef3c7;
+            border: 2px solid #fbbf24;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .time-display .label {
+            font-size: 12px;
+            color: #92400e;
+            font-weight: 600;
+        }
+        
+        .time-display .time {
+            font-size: 20px;
+            font-weight: bold;
+            color: #78350f;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 QR Code ID Tester</h1>
+            <p>Test what unique IDs your QR codes generate</p>
+        </div>
+        
+        <div class="settings">
+            <div class="time-display">
+                <div class="label">Current Time</div>
+                <div class="time" id="currentTime">--:--:--</div>
+            </div>
+            
+            <div class="setting-group">
+                <label>Schedule Day</label>
+                <div class="button-group">
+                    <button onclick="setScheduleType('red')">🔴 Red Day</button>
+                    <button onclick="setScheduleType('black')">⚫ Black Day</button>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <label>Start Type</label>
+                <div class="button-group">
+                    <button onclick="setStartType('regular')">⏰ Regular</button>
+                    <button onclick="setStartType('late')">🌅 Late</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="reader"></div>
+        
+        <div class="results" id="results">
+            <div class="waiting">
+                👆 Select schedule settings and scan a QR code
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ====================================
+        // SCHEDULE CONFIGURATION
+        // Copy your exact schedule structure here
+        // ====================================
+        const schedules = {
+            red: {
+                regular: [
+                    {
+                        name: "P1",
+                        startTime: "08:25",
+                        endTime: "09:50",
+                        students: {
+                            'qr_01': 'Liam Baker',
+                            'qr_02': 'Flynn Daniels',
+                            'qr_03': 'Brayden Duke',
+                            'qr_04': 'Dominic Entriken',
+                            'qr_05': 'Charles Franklin',
+                        }
+                    },
+                    {
+                        name: "P2",
+                        startTime: "10:40",
+                        endTime: "12:00",
+                        students: {
+                            'qr_01': 'Emylene Youvella',
+                            'qr_02': 'Teagen Andersen',
+                            'qr_03': 'Samuel Brandon',
+                            'qr_04': 'Molly Emery',
+                            'qr_05': 'Leo Feltenstein',
+                        }
+                    },
+                    {
+                        name: "P3",
+                        startTime: "12:50",
+                        endTime: "14:10",
+                        students: {
+                            'qr_01': 'Kate Thomas',
+                            'qr_02': 'Liam Jackson',
+                            'qr_03': 'Mia White',
+                            'qr_04': 'Noah Harris',
+                            'qr_05': 'Olivia Martin',
+                        }
+                    },
+                    {
+                        name: "P4",
+                        startTime: "14:15",
+                        endTime: "15:35",
+                        students: {
+                            'qr_01': 'Test Student R01',
+                            'qr_02': 'Test Student R02',
+                            'qr_03': 'Test Student R03',
+                            'qr_04': 'Test Student R04',
+                            'qr_05': 'Test Student R05',
+                        }
+                    },
+                ],
+                late: [
+                    {
+                        name: "P1",
+                        startTime: "09:35",
+                        endTime: "10:50",
+                        students: {
+                            'qr_01': 'Liam Baker',
+                            'qr_02': 'Flynn Daniels',
+                            'qr_03': 'Brayden Duke',
+                            'qr_04': 'Dominic Entriken',
+                            'qr_05': 'Charles Franklin',
+                        }
+                    },
+                ]
+            },
+            black: {
+                regular: [
+                    {
+                        name: "P1",
+                        startTime: "08:25",
+                        endTime: "09:50",
+                        students: {
+                            'qr_01': 'Alex Chen',
+                            'qr_02': 'Bella Rodriguez',
+                            'qr_03': 'Carlos Sanchez',
+                        }
+                    },
+                ],
+                late: [
+                    {
+                        name: "P1",
+                        startTime: "09:35",
+                        endTime: "10:50",
+                        students: {
+                            'qr_01': 'Alex Chen',
+                            'qr_02': 'Bella Rodriguez',
+                            'qr_03': 'Carlos Sanchez',
+                        }
+                    },
+                ]
+            }
+        };
+
+        let scheduleType = null;
+        let startType = null;
+        let scanHistory = [];
+
+        // ====================================
+        // TIME DISPLAY
+        // ====================================
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('currentTime').textContent = timeStr;
+        }
+        
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // ====================================
+        // SCHEDULE SELECTION
+        // ====================================
+        function setScheduleType(type) {
+            scheduleType = type;
+            
+            // Update button states
+            document.querySelectorAll('.settings .button-group')[0].querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active', 'red', 'black');
+            });
+            
+            const buttons = document.querySelectorAll('.settings .button-group')[0].querySelectorAll('button');
+            if (type === 'red') {
+                buttons[0].classList.add('active', 'red');
+            } else {
+                buttons[1].classList.add('active', 'black');
+            }
+            
+            checkIfReady();
+        }
+
+        function setStartType(type) {
+            startType = type;
+            
+            // Update button states
+            document.querySelectorAll('.settings .button-group')[1].querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const buttons = document.querySelectorAll('.settings .button-group')[1].querySelectorAll('button');
+            if (type === 'regular') {
+                buttons[0].classList.add('active');
+            } else {
+                buttons[1].classList.add('active');
+            }
+            
+            checkIfReady();
+        }
+
+        function checkIfReady() {
+            if (scheduleType && startType) {
+                startScanner();
+            }
+        }
+
+        // ====================================
+        // GET CURRENT PERIOD
+        // ====================================
+        function getCurrentPeriod() {
+            if (!scheduleType || !startType) return null;
+            
+            const schedule = schedules[scheduleType][startType];
+            const now = new Date();
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            for (const period of schedule) {
+                if (currentTime >= period.startTime && currentTime < period.endTime) {
+                    return period;
+                }
+            }
+            
+            return null;
+        }
+
+        // ====================================
+        // GENERATE UNIQUE ID
+        // ====================================
+        function generateUniqueId(qrCode) {
+            const currentPeriod = getCurrentPeriod();
+            
+            if (!currentPeriod) {
+                return {
+                    success: false,
+                    error: 'No active class period right now',
+                    qrCode: qrCode,
+                    scheduleType: scheduleType,
+                    startType: startType
+                };
+            }
+            
+            const studentName = currentPeriod.students[qrCode];
+            
+            if (!studentName) {
+                return {
+                    success: false,
+                    error: 'QR code not registered for this period',
+                    qrCode: qrCode,
+                    scheduleType: scheduleType,
+                    startType: startType,
+                    periodName: currentPeriod.name,
+                    availableQRs: Object.keys(currentPeriod.students)
+                };
+            }
+            
+            const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
+            const uniqueId = `${scheduleType}_${startType}_${qrCode}_${periodSuffix}`;
+            
+            return {
+                success: true,
+                uniqueId: uniqueId,
+                qrCode: qrCode,
+                studentName: studentName,
+                periodName: currentPeriod.name,
+                periodTime: `${currentPeriod.startTime} - ${currentPeriod.endTime}`,
+                scheduleType: scheduleType,
+                startType: startType,
+                periodSuffix: periodSuffix
+            };
+        }
+
+        // ====================================
+        // DISPLAY RESULTS
+        // ====================================
+        function displayResult(result) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (result.success) {
+                resultsDiv.innerHTML = `
+                    <div class="result-box success">
+                        <h3>✅ Unique ID Generated</h3>
+                        <div class="value">${result.uniqueId}</div>
+                    </div>
+                    
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>QR Code</label>
+                            <value>${result.qrCode}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Student Name</label>
+                            <value>${result.studentName}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Schedule</label>
+                            <value>${result.scheduleType === 'red' ? '🔴 Red' : '⚫ Black'} - ${result.startType === 'regular' ? '⏰ Regular' : '🌅 Late'}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Period</label>
+                            <value>${result.periodName}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Period Time</label>
+                            <value>${result.periodTime}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Period Suffix</label>
+                            <value>${result.periodSuffix}</value>
+                        </div>
+                    </div>
+                    
+                    <button class="copy-button" onclick="copyToClipboard('${result.uniqueId}', this)">
+                        📋 Copy Unique ID
+                    </button>
+                    
+                    <div class="scan-history">
+                        <h2>Scan History</h2>
+                        <button class="clear-history" onclick="clearHistory()">Clear History</button>
+                        <div id="historyList"></div>
+                    </div>
+                `;
+                
+                // Add to history
+                const timestamp = new Date().toLocaleTimeString();
+                scanHistory.unshift({
+                    time: timestamp,
+                    uniqueId: result.uniqueId,
+                    student: result.studentName
+                });
+                
+                // Keep only last 10
+                if (scanHistory.length > 10) {
+                    scanHistory = scanHistory.slice(0, 10);
+                }
+                
+                updateHistory();
+                
+            } else {
+                let errorDetails = '';
+                if (result.availableQRs) {
+                    errorDetails = `<p style="margin-top: 10px; font-size: 14px;">Available QR codes for this period: ${result.availableQRs.join(', ')}</p>`;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="result-box error">
+                        <h3>❌ Error</h3>
+                        <div class="value">${result.error}</div>
+                        ${errorDetails}
+                    </div>
+                    
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>QR Code Scanned</label>
+                            <value>${result.qrCode}</value>
+                        </div>
+                        <div class="info-item">
+                            <label>Schedule</label>
+                            <value>${result.scheduleType === 'red' ? '🔴 Red' : '⚫ Black'} - ${result.startType === 'regular' ? '⏰ Regular' : '🌅 Late'}</value>
+                        </div>
+                        ${result.periodName ? `
+                        <div class="info-item">
+                            <label>Period</label>
+                            <value>${result.periodName}</value>
+                        </div>` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        function updateHistory() {
+            const historyList = document.getElementById('historyList');
+            if (!historyList) return;
+            
+            historyList.innerHTML = scanHistory.map(item => `
+                <div class="history-item">
+                    [${item.time}] ${item.student} → ${item.uniqueId}
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            scanHistory = [];
+            updateHistory();
+        }
+
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = '✅ Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = '📋 Copy Unique ID';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // ====================================
+        // QR SCANNER
+        // ====================================
+        const html5QrCode = new Html5Qrcode("reader");
+        let scannerStarted = false;
+
+        function startScanner() {
+            if (scannerStarted || !scheduleType || !startType) return;
+            
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            };
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText) => {
+                    const result = generateUniqueId(decodedText.trim());
+                    displayResult(result);
+                },
+                (errorMessage) => {
+                    // Ignore continuous scan errors
+                }
+            ).catch(err => {
+                console.error('Scanner error:', err);
+                document.getElementById('results').innerHTML = `
+                    <div class="result-box error">
+                        <h3>⚠️ Camera Error</h3>
+                        <div class="value">${err.message}</div>
+                        <p style="margin-top: 15px; font-size: 14px;">Make sure you're using HTTPS and have granted camera permissions.</p>
+                    </div>
+                `;
+            });
+            
+            scannerStarted = true;
+        }
+    </script>
+</body>
+</html>
