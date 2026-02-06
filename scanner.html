@@ -461,7 +461,7 @@
 							{
 								name: "P4",
 								startTime: "14:15",
-								endTime: "23:00",
+								endTime: "15:35",
 								students: {
 									'qr_01': 'Test Student R01',
 									'qr_02': 'Test Student R02',
@@ -512,7 +512,7 @@
 							{
 								name: "P4",
 								startTime: "14:20",
-								endTime: "23:00",
+								endTime: "15:35",
 								students: {
 									'qr_01': 'Test Student R01',
 									'qr_02': 'Test Student R02',
@@ -551,7 +551,7 @@
 								}
 							},
 							{
-								name: "P3",
+								name: "Black 3 - Geometry",
 								startTime: "12:50",
 								endTime: "14:10",
 								students: {
@@ -563,9 +563,9 @@
 								}
 							},
 							{
-								name: "P4",
+								name: "Black 4 - Algebra",
 								startTime: "14:15",
-								endTime: "23:00",
+								endTime: "15:35",
 								students: {
 									'qr_01': 'Molly Child',
 									'qr_02': 'Kinsley Darling',
@@ -602,7 +602,7 @@
 								}
 							},
 							{
-								name: "P3",
+								name: "Black 3 - Geometry",
 								startTime: "13:00",
 								endTime: "14:15",
 								students: {
@@ -614,9 +614,9 @@
 								}
 							},
 							{
-								name: "P4",
+								name: "Black 4 - Algebra",
 								startTime: "14:20",
-								endTime: "23:00",
+								endTime: "15:35",
 								students: {
 									'qr_01': 'Molly Child',
 									'qr_02': 'Kinsley Darling',
@@ -777,9 +777,26 @@
         // HELPER FUNCTION: Get Student Info
         // ====================================
         function getStudentInfo(qrCode) {
+            console.log('='.repeat(50));
+            console.log('🔍 GET STUDENT INFO CALLED');
+            console.log('='.repeat(50));
+            console.log('Input QR Code:', qrCode);
+            console.log('Active Schedule Type:', activeScheduleType);
+            console.log('Active Start Type:', activeStartType);
+            console.log('Class Schedule Length:', classSchedule ? classSchedule.length : 'NULL');
+            
             const currentPeriod = getCurrentPeriodStudents();
+            console.log('Current Period Result:', currentPeriod);
             
             if (!currentPeriod) {
+                console.log('❌ ERROR: No active period found');
+                console.log('Current Time:', new Date().toTimeString().slice(0,5));
+                if (classSchedule && classSchedule.length > 0) {
+                    console.log('Available Periods:');
+                    classSchedule.forEach(p => {
+                        console.log(`  - ${p.name}: ${p.startTime} - ${p.endTime}`);
+                    });
+                }
                 return {
                     error: 'No active class period right now',
                     periodName: null,
@@ -788,9 +805,15 @@
                 };
             }
             
+            console.log('✅ Found Period:', currentPeriod.periodName);
+            console.log('Available Students in Period:', Object.keys(currentPeriod.students));
+            
             const studentName = currentPeriod.students[qrCode];
+            console.log('Looking for QR Code:', qrCode);
+            console.log('Student Name Found:', studentName);
             
             if (!studentName) {
+                console.log('❌ ERROR: QR code not in this period');
                 return {
                     error: 'QR code not registered for this period',
                     periodName: currentPeriod.periodName,
@@ -802,6 +825,14 @@
             // Create unique ID with start type support
             const periodSuffix = currentPeriod.periodName.replace(/\s+/g, '_');
 			const uniqueId = `${activeScheduleType}_${activeStartType}_${qrCode}_${periodSuffix}`;
+            
+            console.log('✅ GENERATING UNIQUE ID:');
+            console.log('  Schedule Type:', activeScheduleType);
+            console.log('  Start Type:', activeStartType);
+            console.log('  QR Code:', qrCode);
+            console.log('  Period Suffix:', periodSuffix);
+            console.log('  FINAL UNIQUE ID:', uniqueId);
+            console.log('='.repeat(50));
             
             return {
                 error: null,
@@ -938,21 +969,26 @@
         // SCAN PROCESSING
         // ====================================
         async function processStudentScan(qrCode) {
+            console.log('\n\n🎯 ========== NEW SCAN ==========');
+            console.log('Scanned QR Code:', qrCode);
+            console.log('Timestamp:', new Date().toLocaleTimeString());
+            
             // Prevent overlapping scan processing
             if (isProcessingScan) {
-                console.log('Already processing a scan, ignoring...');
+                console.log('⏸️ Already processing, ignoring');
                 return;
             }
             
             // Debounce check - prevent same QR code from triggering multiple times rapidly
             const now = Date.now();
             if (lastScannedCode === qrCode && (now - lastScannedTime < scanDebounce)) {
-                console.log('Debounced: Same QR code scanned too quickly');
+                console.log('⏸️ Debounced (same QR within 2 seconds)');
                 return; // Ignore this scan
             }
             
             // Set processing flag
             isProcessingScan = true;
+            console.log('✅ Processing flag set');
             
             // Update debounce tracking
             lastScannedCode = qrCode;
@@ -963,28 +999,40 @@
             
             // Check for errors (no active period or unknown QR code)
             if (studentInfo.error) {
+                console.log('❌ ERROR FROM getStudentInfo:', studentInfo.error);
                 playErrorBuzz();
                 showError(studentInfo.error);
                 isProcessingScan = false; // Clear flag before returning
                 return;
             }
 
+            console.log('✅ Student Info Retrieved Successfully');
+            console.log('Student Name:', studentInfo.studentName);
+            console.log('Unique ID:', studentInfo.uniqueId);
+
             // Check cooldown - Stay silent during the 5-second buffer
             if (lastScanTimes[studentInfo.uniqueId] && (now - lastScanTimes[studentInfo.uniqueId] < cooldownPeriod)) {
+                console.log('⏸️ Student in cooldown period');
                 isProcessingScan = false; // Clear flag before returning
                 return; // Do nothing, just exit the function
             }
 
             try {
+                console.log('📡 Accessing Firebase...');
+                console.log('Firebase Path:', 'students/' + studentInfo.uniqueId);
                 const studentRef = database.ref('students/' + studentInfo.uniqueId);
                 const snapshot = await studentRef.once('value');
                 const currentData = snapshot.val();
+                
+                console.log('📊 Current Firebase Data:', currentData);
                 
                 let newStatus;
                 if (!currentData || currentData.status === 'in') {
                     // Student is currently IN, mark them OUT
                     newStatus = 'out';
-                    await studentRef.set({
+                    console.log('➡️ Marking student OUT');
+                    
+                    const dataToWrite = {
                         name: studentInfo.studentName,
                         qrCode: studentInfo.qrCode,
                         period: studentInfo.periodName,
@@ -992,10 +1040,14 @@
                         status: 'out',
                         timestamp: firebase.database.ServerValue.TIMESTAMP,
                         outTimestamp: firebase.database.ServerValue.TIMESTAMP
-                    });
+                    };
+                    console.log('📝 Writing to Firebase:', dataToWrite);
+                    
+                    await studentRef.set(dataToWrite);
                     
                     // Log the "out" event
                     await logEvent(studentInfo, 'out', Date.now(), null, null);
+                    console.log('✅ Student marked OUT and logged');
                     
                 } else {
                     // Student is currently OUT, mark them IN
@@ -1004,7 +1056,10 @@
                     const inTime = Date.now();
                     const duration = outTime ? (inTime - outTime) : null;
                     
-                    await studentRef.set({
+                    console.log('⬅️ Marking student IN');
+                    console.log('Duration:', duration, 'ms');
+                    
+                    const dataToWrite = {
                         name: studentInfo.studentName,
                         qrCode: studentInfo.qrCode,
                         period: studentInfo.periodName,
@@ -1012,10 +1067,14 @@
                         status: 'in',
                         timestamp: firebase.database.ServerValue.TIMESTAMP,
                         outTimestamp: null
-                    });
+                    };
+                    console.log('📝 Writing to Firebase:', dataToWrite);
+                    
+                    await studentRef.set(dataToWrite);
                     
                     // Log the "in" event with duration
                     await logEvent(studentInfo, 'in', outTime, inTime, duration);
+                    console.log('✅ Student marked IN and logged');
                 }
 
                 // Update cooldown tracker
@@ -1024,14 +1083,19 @@
                 // Provide feedback
                 playSuccessBeep();
                 showStatus(studentInfo.uniqueId, newStatus);
+                
+                console.log('✅ ========== SCAN COMPLETE ==========\n\n');
 
             } catch (error) {
-                console.error('Error updating student:', error);
+                console.error('❌ FIREBASE ERROR:', error);
+                console.error('Error details:', error.message);
+                console.error('Error code:', error.code);
                 playErrorBuzz();
                 showError('Database error - please try again');
             } finally {
                 // Always clear the processing flag
                 isProcessingScan = false;
+                console.log('🏁 Processing flag cleared');
             }
         }
 
