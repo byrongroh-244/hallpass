@@ -421,7 +421,7 @@
 			regular: [
 				// Your normal Red Day periods
 					{
-					   name: "Red 1 - Algebra",
+					   name: "P1",
 						startTime: "08:25",
 						endTime: "09:50",
 						students: {
@@ -433,7 +433,7 @@
 						}
 					},
 					{
-						name: "Red 2 - Algebra",
+						name: "P2",
 						startTime: "10:40",
 						endTime: "12:00",
 						students: {
@@ -445,7 +445,7 @@
 						}
 					},
 					{
-						name: "Red 3 - Pre-Algebra",
+						name: "P3",
 						startTime: "12:50",
 						endTime: "14:10",
 						students: {
@@ -457,9 +457,9 @@
 						}
 					},
 					{
-						name: "Red 4 - Prep",
+						name: "P4",
 						startTime: "14:15",
-						endTime: "23:35",
+						endTime: "15:35",
 						students: {
 							'qr_01': 'Test Student R01',
 							'qr_02': 'Test Student R02',
@@ -472,7 +472,7 @@
 			late: [
 				// Your late start Red Day periods (adjusted times)
 				{
-					   name: "Red 1 - Algebra",
+					   name: "P1",
 						startTime: "09:35",
 						endTime: "10:50",
 						students: {
@@ -484,7 +484,7 @@
 						}
 					},
 					{
-						name: "Red 2 - Algebra",
+						name: "P2",
 						startTime: "11:05",
 						endTime: "12:20",
 						students: {
@@ -496,7 +496,7 @@
 						}
 					},
 					{
-						name: "Red 3 - Pre-Algebra",
+						name: "P3",
 						startTime: "13:00",
 						endTime: "14:15",
 						students: {
@@ -508,9 +508,9 @@
 						}
 					},
 					{
-						name: "Red 4 - Prep",
+						name: "P4",
 						startTime: "14:20",
-						endTime: "23:35",
+						endTime: "15:35",
 						students: {
 							'qr_01': 'Test Student R01',
 							'qr_02': 'Test Student R02',
@@ -525,7 +525,7 @@
 			regular: [
 				// Your normal Black Day periods
 				{
-						name: "Black 1 - Prep",
+						name: "P1",
 						startTime: "08:25",
 						endTime: "09:50",
 						students: {
@@ -537,7 +537,7 @@
 						}
 					},
 					{
-						name: "Black 2 - Geometry",
+						name: "P2",
 						startTime: "10:40",
 						endTime: "12:00",
 						students: {
@@ -563,7 +563,7 @@
 					{
 						name: "Black 4 - Algebra",
 						startTime: "14:15",
-						endTime: "23:35",
+						endTime: "15:35",
 						students: {
 							'qr_01': 'Molly Child',
 							'qr_02': 'Kinsley Darling',
@@ -576,7 +576,7 @@
 			late: [
 				// Your late start Black Day periods
 				{
-						name: "Black 1 - Prep",
+						name: "P1",
 						startTime: "09:35",
 						endTime: "10:50",
 						students: {
@@ -588,7 +588,7 @@
 						}
 					},
 					{
-						name: "Black 2 - Geometry",
+						name: "P2",
 						startTime: "11:05",
 						endTime: "12:20",
 						students: {
@@ -614,7 +614,7 @@
 					{
 						name: "Black 4 - Algebra",
 						startTime: "14:20",
-						endTime: "23:35",
+						endTime: "15:35",
 						students: {
 							'qr_01': 'Molly Child',
 							'qr_02': 'Kinsley Darling',
@@ -1003,35 +1003,23 @@
         studentsRef.on('value', (snapshot) => {
             if (!activeScheduleType) return; 
             
-            console.log('\n📊 ===== DASHBOARD UPDATE =====');
-            console.log('Active Schedule Type:', activeScheduleType);
-            console.log('Active Start Type:', activeStartType);
-            
             const firebaseData = snapshot.val() || {};
-            console.log('Firebase Data Keys:', Object.keys(firebaseData));
-            
             const grid = document.getElementById('studentsGrid');
             const currentPeriod = getCurrentPeriod();
 
             if (!currentPeriod) {
                 const dayLabel = activeScheduleType === 'red' ? '🔴 Red Day' : '⚫ Black Day';
                 const startLabel = activeStartType === 'late' ? '🌅 Late Start' : '⏰ Regular';
-                console.log('❌ No active period found');
                 grid.innerHTML = `<div class="no-students">No active class period for ${dayLabel} ${startLabel}</div>`;
                 updateStats({});
                 return;
             }
 
-            console.log('✅ Current Period:', currentPeriod.name);
-            console.log('Expected Students in Period:', Object.keys(currentPeriod.students));
-            
             const expectedStudents = currentPeriod.students; 
             const periodSuffix = currentPeriod.name.replace(/\s+/g, '_');
-            console.log('Period Suffix:', periodSuffix);
             
             // Build prefix with start type support
-            const schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
-            console.log('Schedule Prefix:', schedulePrefix);
+          const schedulePrefix = `${activeScheduleType}_${activeStartType}_`;
 
             let displayStudents = {};
             let inCount = 0;
@@ -1039,7 +1027,6 @@
 
             Object.keys(expectedStudents).forEach(qrCode => {
                 const studentId = `${schedulePrefix}${qrCode}_${periodSuffix}`;
-                console.log('Looking for student ID:', studentId);
                 
                 const record = firebaseData[studentId] || {
                     name: expectedStudents[qrCode],
@@ -1049,21 +1036,11 @@
                     schedule: activeSchedule,
                     timestamp: null
                 };
-                
-                if (firebaseData[studentId]) {
-                    console.log('  ✅ Found in Firebase:', record.name, 'Status:', record.status);
-                } else {
-                    console.log('  ℹ️ Not in Firebase, using default:', record.name);
-                }
 
                 displayStudents[studentId] = record;
                 if (record.status === 'in') inCount++;
                 else outCount++;
             });
-
-            console.log('Total Students to Display:', Object.keys(displayStudents).length);
-            console.log('In:', inCount, 'Out:', outCount);
-            console.log('===== END DASHBOARD UPDATE =====\n');
 
             document.getElementById('inCount').textContent = inCount;
             document.getElementById('outCount').textContent = outCount;
