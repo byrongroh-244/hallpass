@@ -22,7 +22,7 @@
         }
         
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             width: 100%;
         }
         
@@ -46,7 +46,7 @@
         
         .cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 25px;
             margin-bottom: 40px;
         }
@@ -63,6 +63,24 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover::before {
+            transform: scaleX(1);
         }
         
         .card:hover {
@@ -86,6 +104,7 @@
             color: #6b7280;
             line-height: 1.6;
             margin-bottom: 20px;
+            flex-grow: 1;
         }
         
         .card-badge {
@@ -113,39 +132,90 @@
             color: #166534;
         }
         
+        .badge-tools {
+            background: #fce7f3;
+            color: #9f1239;
+        }
+        
         .features {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border-radius: 20px;
-            padding: 30px;
+            padding: 40px;
             color: white;
             margin-bottom: 30px;
         }
         
         .features h3 {
-            font-size: 20px;
-            margin-bottom: 20px;
+            font-size: 24px;
+            margin-bottom: 25px;
             text-align: center;
         }
         
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
         }
         
         .feature-item {
             display: flex;
             align-items: start;
-            gap: 12px;
+            gap: 15px;
         }
         
         .feature-icon {
-            font-size: 24px;
+            font-size: 28px;
             flex-shrink: 0;
         }
         
         .feature-text {
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        
+        .feature-text strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .quick-start {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 35px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .quick-start h3 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .step {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid white;
+        }
+        
+        .step-number {
+            font-size: 32px;
+            font-weight: bold;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+        
+        .step-text {
             font-size: 14px;
             line-height: 1.5;
         }
@@ -155,6 +225,7 @@
             color: white;
             font-size: 14px;
             opacity: 0.8;
+            margin-top: 30px;
         }
         
         .footer a {
@@ -178,6 +249,25 @@
             .features-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .steps {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
     </style>
 </head>
@@ -185,106 +275,161 @@
     <div class="container">
         <div class="header">
             <h1>🎓 Classroom Management System</h1>
-            <p>Track student hall passes with QR codes, real-time monitoring, and analytics</p>
+            <p><span class="status-indicator"></span>Real-time hall pass tracking with QR codes and analytics</p>
         </div>
         
         <div class="cards">
             <a href="scanner.html" class="card">
                 <div class="card-icon">📱</div>
                 <h2>Scanner Kiosk</h2>
-                <p>Mount on your phone or tablet. Students scan QR codes when leaving and returning to class.</p>
+                <p>Mount on your phone or tablet by the door. Students scan their QR codes when leaving and returning to class.</p>
                 <span class="card-badge badge-mobile">For Mobile</span>
             </a>
             
             <a href="dashboard.html" class="card">
                 <div class="card-icon">📊</div>
                 <h2>Live Dashboard</h2>
-                <p>Monitor all students in real-time. See who's out, how long they've been gone, and manual reset options.</p>
+                <p>Real-time monitoring of all students. See who's out, track duration with live timers, and use manual reset options.</p>
                 <span class="card-badge badge-desktop">For Desktop</span>
             </a>
             
             <a href="analytics.html" class="card">
                 <div class="card-icon">📈</div>
                 <h2>Analytics & Reports</h2>
-                <p>View detailed statistics, track patterns, and export data for parent conferences or reports.</p>
+                <p>View detailed statistics, track patterns over time, filter by individual students, and export data to CSV.</p>
                 <span class="card-badge badge-analytics">For Teachers</span>
+            </a>
+            
+            <a href="qr-tester.html" class="card">
+                <div class="card-icon">🔍</div>
+                <h2>QR Code Tester</h2>
+                <p>Test and verify your QR codes. See exactly what unique IDs are generated for troubleshooting and setup.</p>
+                <span class="card-badge badge-tools">Diagnostic Tool</span>
             </a>
         </div>
         
+        <div class="quick-start">
+            <h3>🚀 Quick Start Guide</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">
+                        <strong>Setup</strong><br>
+                        Generate 30 QR codes (qr_01 through qr_30) and print them
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">
+                        <strong>Scanner</strong><br>
+                        Open scanner.html on phone, select schedule (Red/Black + Regular/Late)
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">
+                        <strong>Dashboard</strong><br>
+                        Open dashboard.html on computer, select same schedule
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">
+                        <strong>Go Live</strong><br>
+                        Students scan when leaving/returning, monitor in real-time!
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="features">
-            <h3>✨ System Features</h3>
+            <h3>✨ Key Features</h3>
             <div class="features-grid">
                 <div class="feature-item">
                     <div class="feature-icon">🔴⚫</div>
                     <div class="feature-text">
-                        <strong>Red/Black Day Support</strong><br>
-                        Same QR codes for different students on different schedule days
+                        <strong>Red/Black Day Support</strong>
+                        Same 30 QR codes work for different students on different schedule days
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">⏰🌅</div>
+                    <div class="feature-text">
+                        <strong>Regular & Late Start</strong>
+                        Flexible scheduling for regular and late start days with adjusted period times
                     </div>
                 </div>
                 
                 <div class="feature-item">
                     <div class="feature-icon">⏱️</div>
                     <div class="feature-text">
-                        <strong>Auto-Reset</strong><br>
-                        Students automatically marked "in" at period end if they forget to scan
+                        <strong>Auto-Reset at Period End</strong>
+                        Students automatically marked "in" at period end if they forget to scan back
                     </div>
                 </div>
                 
                 <div class="feature-item">
                     <div class="feature-icon">📝</div>
                     <div class="feature-text">
-                        <strong>Complete Logging</strong><br>
-                        Every scan tracked with timestamps and duration for accountability
-                    </div>
-                </div>
-                
-                <div class="feature-item">
-                    <div class="feature-icon">🔒</div>
-                    <div class="feature-text">
-                        <strong>Privacy First</strong><br>
-                        QR codes contain only generic IDs, names stored securely in your config
+                        <strong>Complete Event Logging</strong>
+                        Every scan tracked with timestamps, durations, and action types for full accountability
                     </div>
                 </div>
                 
                 <div class="feature-item">
                     <div class="feature-icon">📊</div>
                     <div class="feature-text">
-                        <strong>Rich Analytics</strong><br>
-                        Daily, weekly, and rolling averages with CSV export capability
+                        <strong>Rich Analytics</strong>
+                        Daily, weekly, and 2-week rolling averages with per-student filtering and CSV export
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">🔒</div>
+                    <div class="feature-text">
+                        <strong>Privacy First</strong>
+                        QR codes contain only generic IDs, student names stored securely in your configuration
                     </div>
                 </div>
                 
                 <div class="feature-item">
                     <div class="feature-icon">☁️</div>
                     <div class="feature-text">
-                        <strong>Cloud Synced</strong><br>
-                        Powered by Firebase for real-time updates across all devices
+                        <strong>Cloud Synced</strong>
+                        Powered by Firebase Realtime Database for instant updates across all devices
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">🚫</div>
+                    <div class="feature-text">
+                        <strong>Rapid Scan Protection</strong>
+                        Smart debounce and cooldown prevents accidental double-scans and toggle errors
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="footer">
-            <p>Built with Firebase • Open Source • <a href="https://github.com/yourusername/classroom-management" target="_blank">View Documentation</a></p>
+            <p>
+                Built with ❤️ for teachers • Powered by Firebase • 
+                <a href="https://firebase.google.com" target="_blank">Learn More</a>
+            </p>
+            <p style="margin-top: 10px; font-size: 12px;">
+                Clean period names (P1, P2, P3, P4) • Simple unique IDs • Production ready
+            </p>
         </div>
     </div>
     
     <script>
         // Check if Firebase is configured
-        // This is a simple check - you can enhance it
         window.addEventListener('load', () => {
-            const checkLinks = async () => {
-                try {
-                    const response = await fetch('scanner.html', { method: 'HEAD' });
-                    if (!response.ok) {
-                        console.warn('Scanner page may not be available');
-                    }
-                } catch (error) {
-                    console.warn('Unable to verify pages are accessible');
-                }
-            };
-            
-            checkLinks();
+            console.log('🎓 Classroom Management System Loaded');
+            console.log('📱 Scanner: scanner.html');
+            console.log('📊 Dashboard: dashboard.html');
+            console.log('📈 Analytics: analytics.html');
+            console.log('🔍 QR Tester: qr-tester.html');
         });
     </script>
 </body>
