@@ -15,6 +15,7 @@ const C = {
   green: '#10b981', greenBg: 'rgba(16,185,129,0.1)',
   red: '#ef4444', redBg: 'rgba(239,68,68,0.08)', redBorder: 'rgba(239,68,68,0.3)',
   primary: '#667eea',
+  muted: '#94a3b8',
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function Scanner() {
   const [pickDay, setPickDay] = useState<ScheduleDay>('red')
   const [pickStart, setPickStart] = useState<StartType>('regular')
   const [pickPeriod, setPickPeriod] = useState<string>('')
+  const [errorPopup, setErrorPopup] = useState<{ type: 'maxOut' | 'notActive' } | null>(null)
   const [swipeName, setSwipeName] = useState('')
   const [swipeAction, setSwipeAction] = useState<'out'|'in'>('out')
   const [swipeProgress, setSwipeProgress] = useState(0)
@@ -79,30 +81,33 @@ export default function Scanner() {
     day: ScheduleDay; start: StartType; outTimes: Record<string, number>
   }>({ name: '', action: 'out', period: null, day: 'red', start: 'regular', outTimes: {} })
 
-  const { isTablet, isWide } = useWindowSize()
+  const { isTablet, width } = useWindowSize()
+  const isAboveTablet = width > 1024
   const { roster } = useRoster()
   const periods = SCHEDULES[day][start]
   const period: Period | null = periods.find(p => p.name === periodName) ?? periods[0] ?? null
 
-  // Get student list from Firebase roster if available, fall back to schedules.ts
+  // Get student list from Firebase roster — fall back to schedules.ts only if Firebase
+  // has NO entry for this period at all (i.e. editor has never been used)
   const rosterKey_ = period ? `${day}_${period.name.match(/\d+/)?.[0] ?? '1'}` : null
-  const rosterPeriod = rosterKey_ ? roster[rosterKey_] : null
-  // Use roster students if populated, otherwise fall back to schedules.ts students
-  const periodStudents: string[] = rosterPeriod?.students?.length
-    ? rosterPeriod.students
-    : (period?.students ?? [])
+  const rosterEntry = rosterKey_ !== null && rosterKey_ in roster ? roster[rosterKey_] : undefined
+  const firebaseHasRoster = Object.keys(roster).length > 0
+  const periodStudents: string[] = firebaseHasRoster
+    ? (rosterEntry?.students ?? [])           // Firebase has been set up — use it (even if empty)
+    : (period?.students ?? [])                 // Firebase empty — fall back to schedules.ts
 
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id) }, [])
 
   // Reset period when day/start changes
   useEffect(() => {
+    setErrorPopup(null)  // clear any error when schedule changes
     const valid = SCHEDULES[day][start].find(p => p.name === periodName)
     if (!valid) {
       const first = SCHEDULES[day][start][0]?.name ?? ''
       setPeriodName(first)
       localStorage.setItem('hp_period', first)
     }
-  }, [day, start])
+  }, [day, start, periodName])
 
   // Real-time listener — syncs scanner with dashboard and auto-resets at period end
   // Uses a ref so the callback always sees current period/day/start without re-subscribing
@@ -169,8 +174,14 @@ export default function Scanner() {
 
   const openSwipe = (name: string) => {
     const isOut = outSet.has(name)
-    if (!isOut && outSet.size >= maxOut) { alert(`Max ${maxOut} students allowed out at once.`); return }
-    if (!period) { alert('Select a period in Schedule settings first.'); return }
+    // Check period exists and is currently active
+    if (!period) { setErrorPopup({ type: 'notActive' }); return }
+    const now = new Date()
+    const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
+    const active = t >= period.startTime && t < period.endTime
+    if (!active) { setErrorPopup({ type: 'notActive' }); return }
+    // Check capacity only when checking OUT (not checking back in)
+    if (!isOut && outSet.size >= maxOut) { setErrorPopup({ type: 'maxOut' }); return }
     // Store everything in ref right now, before any state changes
     swipeRef.current = { name, action: isOut ? 'in' : 'out', period, day, start, outTimes }
     setSwipeName(name)
@@ -239,88 +250,136 @@ export default function Scanner() {
   const thumbSize = isTablet ? 48 : 44
   const thumbLeft = swipeProgress === 0 ? '4px' : `calc(4px + ${swipeProgress} * (100% - ${thumbSize + 8}px))`
 
-  return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-      <div style={{ width: '100%', maxWidth: isTablet ? 640 : 480, background: C.white, borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+  // Local clock — updates every second via tick
+  const clockTime = (() => {
+    const now = new Date()
+    const h = now.getHours() % 12 || 12
+    const m = now.getMinutes().toString().padStart(2, '0')
+    const ampm = now.getHours() >= 12 ? 'PM' : 'AM'
+    return { hm: `${h}:${m}`, ampm }
+  })()
 
-        {/* Header */}
-        <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', color: C.ink, margin: 0 }}>Hall Pass</h1>
-            <p style={{ fontSize: 13, color: C.slate, margin: '3px 0 0' }}>
-              {period ? `${rosterPeriod?.name || period.name}  ·  ${fmt12(period.startTime)} – ${fmt12(period.endTime)}` : 'No period selected — tap Schedule'}
-            </p>
+  // Landscape: two-column layout (left = info + students, right = big clock)
+  const isLandscape = isTablet
+
+  return (
+    <div style={{ minHeight: '100vh', height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', sans-serif", overflow: 'hidden' }}>
+
+      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+
+        {/* Left: Hall Pass → class name → time stacked */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.5rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>Hall Pass</h1>
+          {period ? (
+            <>
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>
+                {rosterEntry?.name || period.name.replace(/^[^-]+-/, '')}
+              </span>
+              <span style={{ fontSize: 11, color: C.muted, lineHeight: 1.3 }}>
+                {fmt12(period.startTime)} – {fmt12(period.endTime)}
+              </span>
+            </>
+          ) : (
+            <span style={{ fontSize: 13, color: C.muted }}>No period selected</span>
+          )}
+        </div>
+
+        {/* Center clock — only shown above iPad width */}
+        {isAboveTablet && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
           </div>
-          <button onClick={() => { setPickDay(day); setScreen('settings') }} style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 10, padding: '7px 12px', fontSize: 13, color: C.slate, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        )}
+
+        {/* Right: out counter + settings */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {Array.from({length: maxOut}, (_, i) => (
+                <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: outSet.size >= maxOut ? C.red : C.slate }}>{outSet.size}/{maxOut}</span>
+          </div>
+          <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName || SCHEDULES[day][start][0]?.name || ''); setScreen('settings') }}
+            style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.slate, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Schedule
           </button>
         </div>
+      </div>
 
-        {/* Out counter */}
-        <div style={{ padding: '10px 20px', background: C.cloud, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, color: C.slate }}>Students out</span>
-          <div style={{ display: 'flex', gap: 5 }}>
-            {Array.from({length: maxOut}, (_, i) => <span key={i} style={{ width: isTablet ? 12 : 10, height: isTablet ? 12 : 10, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />)}
-          </div>
-          <span style={{ fontSize: isTablet ? 15 : 13, fontWeight: 600, color: outSet.size >= maxOut ? C.red : C.ink }}>{outSet.size} / {maxOut}</span>
-        </div>
+      {/* ── Main content ─────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-
-
-        {/* Student grid */}
-        <div style={{ padding: '14px 14px 20px' }}>
-          {!period
-            ? <p style={{ textAlign: 'center', padding: '2rem', color: C.slate, fontSize: 14 }}>No period selected. Tap Schedule to set up.</p>
-            : (
-              <>
-                {/* Students Out section */}
-                {outSet.size > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8, paddingLeft: 2 }}>
-                      Students Out
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
-                      {periodStudents.filter(n => outSet.has(n)).map(name => {
-                        const elapsed = Date.now() - (outTimes[name] ?? Date.now())
-                        return (
-                          <button key={name} onClick={() => openSwipe(name)}
-                            style={{ border: `1.5px solid ${C.redBorder}`, background: C.redBg, borderRadius: 10, padding: isTablet ? '14px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
-                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
-                            onMouseUp={e => (e.currentTarget.style.transform = '')}
-                            onMouseLeave={e => (e.currentTarget.style.transform = '')}
-                          >
-                            <div style={{ fontSize: isTablet ? 16 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 6 }}>{name}</div>
-                            <div style={{ fontSize: isTablet ? 15 : 12, fontWeight: 700, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* In Class section */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8, paddingLeft: 2 }}>
-                    {'Tap your name'}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
-                    {periodStudents.filter(n => !outSet.has(n)).map(name => (
-                      <button key={name} onClick={() => openSwipe(name)}
-                        style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isTablet ? '14px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
-                        onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
-                        onMouseUp={e => (e.currentTarget.style.transform = '')}
-                        onMouseLeave={e => (e.currentTarget.style.transform = '')}
-                      >
-                        <div style={{ fontSize: isTablet ? 16 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
-                      </button>
-                    ))}
+        {/* Left: student grid */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: isLandscape ? '16px 20px' : '12px 14px' }}>
+          {!period ? (
+            <p style={{ textAlign: 'center', padding: '2rem', color: C.slate, fontSize: 14 }}>No period selected. Tap Schedule.</p>
+          ) : (
+            <>
+              {/* Students Out */}
+              {outSet.size > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Students Out</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isLandscape ? 'repeat(5, minmax(0, 140px))' : 'repeat(3, 1fr)', gap: isLandscape ? 10 : 8 }}>
+                    {periodStudents.filter(n => outSet.has(n)).map(name => {
+                      const elapsed = Date.now() - (outTimes[name] ?? Date.now())
+                      return (
+                        <button key={name} onClick={() => openSwipe(name)}
+                          style={{ border: `1.5px solid ${C.redBorder}`, background: C.redBg, borderRadius: 10, padding: isAboveTablet ? '18px 8px' : isLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
+                          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
+                          onMouseUp={e => (e.currentTarget.style.transform = '')}
+                          onMouseLeave={e => (e.currentTarget.style.transform = '')}
+                        >
+                          <div style={{ fontSize: isAboveTablet ? 17 : isLandscape ? 15 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 4 }}>{name}</div>
+                          <div style={{ fontSize: isAboveTablet ? 16 : isLandscape ? 14 : 12, fontWeight: 700, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
-              </>
-            )
-          }
+              )}
+
+              {/* In Class */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Tap your name</div>
+                <div style={{ display: 'grid', gridTemplateColumns: isLandscape ? 'repeat(5, minmax(0, 140px))' : 'repeat(3, 1fr)', gap: isLandscape ? 10 : 8 }}>
+                  {periodStudents.filter(n => !outSet.has(n)).map(name => (
+                    <button key={name} onClick={() => openSwipe(name)}
+                      style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isAboveTablet ? '18px 8px' : isLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
+                      onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
+                      onMouseUp={e => (e.currentTarget.style.transform = '')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = '')}
+                    >
+                      <div style={{ fontSize: isAboveTablet ? 17 : isLandscape ? 15 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Right: big clock panel (landscape only) */}
+        {isLandscape && (
+          <div style={{ width: 220, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: `1px solid rgba(255,255,255,0.08)` }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '4.5rem', fontWeight: 700, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
+              {clockTime.hm}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
+              {clockTime.ampm}
+            </div>
+            {period && (
+              <div style={{ marginTop: 24, textAlign: 'center', padding: '0 16px' }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Period ends</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{fmt12(period.endTime)}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Swipe overlay */}
@@ -433,6 +492,49 @@ export default function Scanner() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setScreen('main')} style={{ flex: 1, padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14 }}>Cancel</button>
               <HomeBtn />
+            </div>
+          </div>
+        </Overlay>
+      )}
+
+      {/* ── Error popups ────────────────────────────────────────────────────── */}
+      {errorPopup?.type === 'maxOut' && (
+        <Overlay>
+          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isTablet ? 380 : 320, textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="26" height="26" fill="none" stroke={C.red} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+            </div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', color: C.ink, margin: '0 0 10px' }}>Class is at capacity</h2>
+            <p style={{ fontSize: 14, color: C.slate, margin: '0 0 24px', lineHeight: 1.6 }}>
+              The maximum number of students is already out. Please wait for someone to return before leaving.
+            </p>
+            <button onClick={() => setErrorPopup(null)}
+              style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.ink, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+              OK
+            </button>
+          </div>
+        </Overlay>
+      )}
+
+      {errorPopup?.type === 'notActive' && (
+        <Overlay>
+          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isTablet ? 380 : 320, textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="26" height="26" fill="none" stroke="#f59e0b" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', color: C.ink, margin: '0 0 10px' }}>No active period</h2>
+            <p style={{ fontSize: 14, color: C.slate, margin: '0 0 24px', lineHeight: 1.6 }}>
+              The current period is not active. Check the schedule settings to make sure the right period is selected.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setErrorPopup(null)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Dismiss
+              </button>
+              <button onClick={() => { setErrorPopup(null); setPickDay(day); setPickStart(start); setPickPeriod(periodName || SCHEDULES[day][start][0]?.name || ''); setScreen('settings') }}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: C.ink, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Change Schedule
+              </button>
             </div>
           </div>
         </Overlay>

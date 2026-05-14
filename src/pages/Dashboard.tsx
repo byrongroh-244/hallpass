@@ -179,11 +179,14 @@ export default function Dashboard() {
   const periods = SCHEDULES[day][start]
   const period = periods.find(p => p.name === periodName) ?? periods[0]
 
-  // Get student list from Firebase roster if available, fall back to schedules.ts
+  // Get student list from Firebase roster — fall back to schedules.ts only if Firebase
+  // has NO entry at all (editor has never been used)
   const rosterKey_ = period ? `${day}_${period.name.match(/\d+/)?.[0] ?? '1'}` : null
-  const rosterPeriod = rosterKey_ ? firebaseRoster[rosterKey_] : null
-  const periodStudents: string[] = rosterPeriod?.students?.length
-    ? rosterPeriod.students
+  const rosterEntry = rosterKey_ !== null && rosterKey_ in firebaseRoster ? firebaseRoster[rosterKey_] : undefined
+  const firebaseHasRoster = Object.keys(firebaseRoster).length > 0
+  const rosterPeriod = rosterEntry
+  const periodStudents: string[] = firebaseHasRoster
+    ? (rosterEntry?.students ?? [])
     : (period?.students ?? [])
   const sched = scheduleStr(day, start)
 
