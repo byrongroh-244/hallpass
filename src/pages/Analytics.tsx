@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useAllLogs } from '../hooks/useLogs'
@@ -156,12 +157,12 @@ export default function Analytics() {
             <p style={{ color: C.slate, fontSize: 13, margin: '3px 0 0' }}>Hall pass history and trends</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/dashboard" title="Dashboard" style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
+            <Link to="/dashboard" title="Dashboard" style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" /></svg>
-            </a>
-            <a href="/" title="Home" style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-            </a>
+            </Link>
+            <Link to="/" title="Home" style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 001 1m-6 0h6" /></svg>
+            </Link>
           </div>
         </div>
 

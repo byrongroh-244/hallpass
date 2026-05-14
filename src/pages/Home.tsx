@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 export default function Home() {
   const pages = [
     {
@@ -14,7 +15,7 @@ export default function Home() {
     },
   ]
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <div style={{ maxWidth: 480, width: '100%' }}>
         <div style={{ marginBottom: '2.5rem' }}>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '2.5rem', color: '#0f172a', margin: '0 0 6px' }}>Hall Pass</h1>
@@ -22,14 +23,14 @@ export default function Home() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {pages.map(p => (
-            <a key={p.href} href={p.href} style={{ background: '#fff', borderRadius: 12, padding: '1.125rem 1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid #e2e8f0' }}>
+            <Link key={p.href} to={p.href} style={{ background: '#fff', borderRadius: 12, padding: '1.125rem 1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid #e2e8f0' }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: p.color + '14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: p.color, flexShrink: 0 }}>{p.icon}</div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#0f172a', marginBottom: 2 }}>{p.label}</div>
                 <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.desc}</div>
               </div>
               <svg width="16" height="16" fill="none" stroke="#cbd5e1" viewBox="0 0 24 24" style={{ marginLeft: 'auto', flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

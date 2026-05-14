@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ref, onValue, off } from 'firebase/database'
 import { db } from '../firebase/config'
@@ -30,6 +31,16 @@ function WelcomeBar() {
     <div style={{ height: 4, borderRadius: 2, background: '#e2e8f0', overflow: 'hidden' }}>
       <div style={{ height: '100%', borderRadius: 2, background: C.green, width: `${w}%`, transition: 'width 3.3s linear' }} />
     </div>
+  )
+}
+
+
+function HomeBtn() {
+  const navigate = useNavigate()
+  return (
+    <button onClick={() => navigate('/')} style={{ flex: 1, padding: 9, borderRadius: 8, background: '#0f172a', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+      Home
+    </button>
   )
 }
 
@@ -410,7 +421,7 @@ export default function Scanner() {
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setScreen('main')} style={{ flex: 1, padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14 }}>Cancel</button>
-              <a href="/" style={{ flex: 1, padding: 9, borderRadius: 8, background: C.cloud, color: C.slate, fontSize: 14, fontWeight: 500, textDecoration: 'none', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Home</a>
+              <HomeBtn />
             </div>
           </div>
         </Overlay>

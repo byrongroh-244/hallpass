@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ref, get } from 'firebase/database'
 import { db } from '../firebase/config'
@@ -19,11 +20,11 @@ const C = {
 
 // ─── Small reusable components ────────────────────────────────────────────────
 
-function NavIcon({ href, title, children }: { href: string; title: string; children: React.ReactNode }) {
+function NavIcon({ to, title, children }: { to: string; title: string; children: React.ReactNode }) {
   return (
-    <a href={href} title={title} style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
+    <Link to={to} title={title} style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
       {children}
-    </a>
+    </Link>
   )
 }
 
@@ -191,10 +192,10 @@ export default function Dashboard() {
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               {showStats ? 'Hide stats' : 'Show stats'}
             </button>
-            <NavIcon href="/analytics" title="Analytics">
+            <NavIcon to="/analytics" title="Analytics">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </NavIcon>
-            <NavIcon href="/" title="Home">
+            <NavIcon to="/" title="Home">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
             </NavIcon>
           </div>
