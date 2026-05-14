@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ref, onValue, off } from 'firebase/database'
 import { db } from '../firebase/config'
 import { SCHEDULES } from '../data/schedules'
+import { useRoster } from '../hooks/useRoster'
 import { scheduleStr, writeStudentOut, writeStudentIn, writeAutoReset } from '../firebase/writes'
 import { fmt, fmt12, todayStr } from '../utils/schedule'
 import type { ScheduleDay, StartType, Period } from '../types'
@@ -79,8 +80,17 @@ export default function Scanner() {
   }>({ name: '', action: 'out', period: null, day: 'red', start: 'regular', outTimes: {} })
 
   const { isTablet, isWide } = useWindowSize()
+  const { roster } = useRoster()
   const periods = SCHEDULES[day][start]
   const period: Period | null = periods.find(p => p.name === periodName) ?? periods[0] ?? null
+
+  // Get student list from Firebase roster if available, fall back to schedules.ts
+  const rosterKey_ = period ? `${day}_${period.name.match(/\d+/)?.[0] ?? '1'}` : null
+  const rosterPeriod = rosterKey_ ? roster[rosterKey_] : null
+  // Use roster students if populated, otherwise fall back to schedules.ts students
+  const periodStudents: string[] = rosterPeriod?.students?.length
+    ? rosterPeriod.students
+    : (period?.students ?? [])
 
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id) }, [])
 
@@ -238,7 +248,7 @@ export default function Scanner() {
           <div>
             <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', color: C.ink, margin: 0 }}>Hall Pass</h1>
             <p style={{ fontSize: 13, color: C.slate, margin: '3px 0 0' }}>
-              {period ? `${period.name}  ·  ${fmt12(period.startTime)} – ${fmt12(period.endTime)}` : 'No period selected — tap Schedule'}
+              {period ? `${rosterPeriod?.name || period.name}  ·  ${fmt12(period.startTime)} – ${fmt12(period.endTime)}` : 'No period selected — tap Schedule'}
             </p>
           </div>
           <button onClick={() => { setPickDay(day); setScreen('settings') }} style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 10, padding: '7px 12px', fontSize: 13, color: C.slate, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -271,7 +281,7 @@ export default function Scanner() {
                       Students Out
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
-                      {period.students.filter(n => outSet.has(n)).map(name => {
+                      {periodStudents.filter(n => outSet.has(n)).map(name => {
                         const elapsed = Date.now() - (outTimes[name] ?? Date.now())
                         return (
                           <button key={name} onClick={() => openSwipe(name)}
@@ -295,7 +305,7 @@ export default function Scanner() {
                     {'Tap your name'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
-                    {period.students.filter(n => !outSet.has(n)).map(name => (
+                    {periodStudents.filter(n => !outSet.has(n)).map(name => (
                       <button key={name} onClick={() => openSwipe(name)}
                         style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isTablet ? '14px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
                         onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}

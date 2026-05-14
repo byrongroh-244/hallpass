@@ -6,6 +6,7 @@ import { scheduleStr, studentKey, writeManualAction, writeAutoReset } from '../f
 import { useStudents } from '../hooks/useStudents'
 import { useTodayLogs } from '../hooks/useLogs'
 import { SCHEDULES } from '../data/schedules'
+import { useRoster } from '../hooks/useRoster'
 import { fmtDuration, fmt, fmt12, MAX_OUT, todayStr } from '../utils/schedule'
 import type { ScheduleDay, StartType, StudentRecord } from '../types'
 import { useWindowSize } from '../hooks/useWindowSize'
@@ -159,6 +160,7 @@ function LongTripAlert({ students, onMarkIn }: {
 export default function Dashboard() {
   const { isWide, width } = useWindowSize()
   const allStudents = useStudents()
+  const { roster: firebaseRoster } = useRoster()
   const todayLogs = useTodayLogs()
   const [tick, setTick] = useState(0)
 
@@ -176,6 +178,13 @@ export default function Dashboard() {
 
   const periods = SCHEDULES[day][start]
   const period = periods.find(p => p.name === periodName) ?? periods[0]
+
+  // Get student list from Firebase roster if available, fall back to schedules.ts
+  const rosterKey_ = period ? `${day}_${period.name.match(/\d+/)?.[0] ?? '1'}` : null
+  const rosterPeriod = rosterKey_ ? firebaseRoster[rosterKey_] : null
+  const periodStudents: string[] = rosterPeriod?.students?.length
+    ? rosterPeriod.students
+    : (period?.students ?? [])
   const sched = scheduleStr(day, start)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -241,7 +250,7 @@ export default function Dashboard() {
 
   const roster = useMemo(() => {
     if (!period) return []
-    return period.students.map(name => {
+    return periodStudents.map(name => {
       const key = studentKey(day, start, name, period.name)
       const rec = allStudents[key]
       return {
@@ -253,7 +262,7 @@ export default function Dashboard() {
         tripCount: tripCountMap[name] ?? 0,
       }
     })
-  }, [allStudents, period, day, start, lastTripMap, tripCountMap, recentlyActiveSet])
+  }, [allStudents, period, day, start, lastTripMap, tripCountMap, recentlyActiveSet, periodStudents])
 
   const relevantLogs = todayLogs.filter(l =>
     ['in', 'manual-in', 'auto-reset'].includes(l.action) &&
@@ -315,7 +324,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 100, background: isPeriodActive ? 'rgba(16,185,129,0.1)' : C.cloud, border: `1px solid ${isPeriodActive ? 'rgba(16,185,129,0.25)' : C.border}` }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPeriodActive ? C.green : C.muted, display: 'inline-block' }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: isPeriodActive ? '#065f46' : C.slate }}>
-                {isPeriodActive ? 'Active' : 'Not active'} · {fmt12(period.startTime)} – {fmt12(period.endTime)}
+                {isPeriodActive ? 'Active' : 'Not active'} · {rosterPeriod?.name ? `${rosterPeriod.name} · ` : ''}{fmt12(period.startTime)} – {fmt12(period.endTime)}
               </span>
             </div>
           )}
