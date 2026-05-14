@@ -6,7 +6,7 @@ import Analytics from './pages/Analytics'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/hallpass">
       <Routes>
         <Route path="/"          element={<Home />} />
         <Route path="/scanner"   element={<Scanner />} />
