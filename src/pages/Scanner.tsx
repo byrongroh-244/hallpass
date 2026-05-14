@@ -226,7 +226,8 @@ export default function Scanner() {
   const isCheckingOut = swipeAction === 'out'
   const accent = isCheckingOut ? C.red : C.green
   const accentBg = isCheckingOut ? C.redBg : C.greenBg
-  const thumbLeft = `calc(4px + ${swipeProgress} * (100% - 60px))`
+  const thumbSize = isTablet ? 48 : 44
+  const thumbLeft = swipeProgress === 0 ? '4px' : `calc(4px + ${swipeProgress} * (100% - ${thumbSize + 8}px))`
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -250,9 +251,9 @@ export default function Scanner() {
         <div style={{ padding: '10px 20px', background: C.cloud, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, color: C.slate }}>Students out</span>
           <div style={{ display: 'flex', gap: 5 }}>
-            {Array.from({length: maxOut}, (_, i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />)}
+            {Array.from({length: maxOut}, (_, i) => <span key={i} style={{ width: isTablet ? 12 : 10, height: isTablet ? 12 : 10, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />)}
           </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: outSet.size >= maxOut ? C.red : C.ink }}>{outSet.size} / {maxOut}</span>
+          <span style={{ fontSize: isTablet ? 15 : 13, fontWeight: 600, color: outSet.size >= maxOut ? C.red : C.ink }}>{outSet.size} / {maxOut}</span>
         </div>
 
 
@@ -269,7 +270,7 @@ export default function Scanner() {
                     <div style={{ fontSize: 11, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8, paddingLeft: 2 }}>
                       Students Out
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 10 : 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
                       {period.students.filter(n => outSet.has(n)).map(name => {
                         const elapsed = Date.now() - (outTimes[name] ?? Date.now())
                         return (
@@ -279,8 +280,8 @@ export default function Scanner() {
                             onMouseUp={e => (e.currentTarget.style.transform = '')}
                             onMouseLeave={e => (e.currentTarget.style.transform = '')}
                           >
-                            <div style={{ fontSize: isTablet ? 14 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 4 }}>{name}</div>
-                            <div style={{ fontSize: isTablet ? 14 : 12, fontWeight: 600, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
+                            <div style={{ fontSize: isTablet ? 16 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 6 }}>{name}</div>
+                            <div style={{ fontSize: isTablet ? 15 : 12, fontWeight: 700, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
                           </button>
                         )
                       })}
@@ -291,9 +292,9 @@ export default function Scanner() {
                 {/* In Class section */}
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8, paddingLeft: 2 }}>
-                    {outSet.size > 0 ? 'In Class' : 'Tap your name'}
+                    {'Tap your name'}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 10 : 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isTablet ? 4 : isWide ? 5 : 3}, 1fr)`, gap: isTablet ? 12 : 8 }}>
                     {period.students.filter(n => !outSet.has(n)).map(name => (
                       <button key={name} onClick={() => openSwipe(name)}
                         style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isTablet ? '14px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
@@ -301,7 +302,7 @@ export default function Scanner() {
                         onMouseUp={e => (e.currentTarget.style.transform = '')}
                         onMouseLeave={e => (e.currentTarget.style.transform = '')}
                       >
-                        <div style={{ fontSize: isTablet ? 14 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
+                        <div style={{ fontSize: isTablet ? 16 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
                       </button>
                     ))}
                   </div>
@@ -315,7 +316,7 @@ export default function Scanner() {
       {/* Swipe overlay */}
       {screen === 'swipe' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px 24px', width: isTablet ? 360 : 300, textAlign: 'center' }}>
+          <div style={{ background: C.white, borderRadius: 20, padding: isTablet ? '32px 32px 28px' : '28px 24px 24px', width: isTablet ? 420 : 300, textAlign: 'center' }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="26" height="26" fill="none" stroke={accent} viewBox="0 0 24 24">
                 {isCheckingOut
@@ -328,7 +329,7 @@ export default function Scanner() {
             <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 24 }}>{swipeName}</div>
 
             {/* Swipe track — pointer events handle both mouse and touch */}
-            <div ref={trackRef} style={{ position: 'relative', height: 56, background: C.cloud, borderRadius: 28, border: `1px solid ${C.border}`, marginBottom: 16, touchAction: 'none' }}>
+            <div ref={trackRef} style={{ position: 'relative', height: isTablet ? 64 : 56, background: C.cloud, borderRadius: isTablet ? 32 : 28, border: `1px solid ${C.border}`, marginBottom: 16, touchAction: 'none' }}>
               <div style={{ position: 'absolute', inset: 0, background: accentBg, width: `${swipeProgress * 100}%`, borderRadius: 28, pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <span style={{ fontSize: 13, color: C.slate, opacity: swipeProgress > 0.15 ? 0 : 1, transition: 'opacity 0.15s' }}>Swipe to confirm →</span>
@@ -338,7 +339,7 @@ export default function Scanner() {
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
-                style={{ position: 'absolute', top: 4, left: thumbLeft, width: isTablet ? 56 : 48, height: isTablet ? 56 : 48, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', transition: swipeProgress === 0 ? 'left 0.25s' : 'none' }}
+                style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: thumbLeft, width: isTablet ? 48 : 44, height: isTablet ? 48 : 44, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', transition: swipeProgress === 0 ? 'left 0.25s' : 'none' }}
               >
                 <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
               </div>
@@ -354,14 +355,14 @@ export default function Scanner() {
       {/* Welcome back */}
       {screen === 'welcome' && (
         <Overlay>
-          <div onClick={() => setScreen('main')} style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: 280, textAlign: 'center', cursor: 'pointer' }}>
+          <div onClick={() => setScreen('main')} style={{ background: C.white, borderRadius: 20, padding: isTablet ? '40px 36px' : '28px 24px', width: isTablet ? 360 : 280, textAlign: 'center', cursor: 'pointer' }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="28" height="28" fill="none" stroke={C.green} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 4 }}>Welcome back!</div>
+            <div style={{ fontSize: isTablet ? 24 : 18, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 4 }}>Welcome back!</div>
             <div style={{ fontSize: 14, color: C.slate, marginBottom: 12 }}>{welcomeName}</div>
             <div style={{ fontSize: 12, color: C.slate, marginBottom: 4 }}>Trip time</div>
-            <div style={{ fontSize: 42, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>{welcomeTime}</div>
+            <div style={{ fontSize: isTablet ? 56 : 42, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>{welcomeTime}</div>
             <WelcomeBar />
           </div>
         </Overlay>

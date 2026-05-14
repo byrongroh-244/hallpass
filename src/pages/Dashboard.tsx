@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ref, get } from 'firebase/database'
 import { db } from '../firebase/config'
 import { scheduleStr, studentKey, writeManualAction, writeAutoReset } from '../firebase/writes'
@@ -18,58 +18,166 @@ const C = {
   amber: '#f59e0b', primary: '#667eea',
 }
 
-// ─── Small reusable components ────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function NavIcon({ to, title, children }: { to: string; title: string; children: React.ReactNode }) {
   return (
-    <Link to={to} title={title} style={{ width: 36, height: 36, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
+    <Link to={to} title={title} style={{ width: 34, height: 34, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
       {children}
     </Link>
   )
 }
 
-function SegmentedControl({ options, value, onChange }: { options: [string, string][]; value: string; onChange: (v: string) => void }) {
+function SectionDivider({ label, count, accent }: { label: string; count: number; accent?: string }) {
   return (
-    <div style={{ display: 'flex', gap: 3, background: C.cloud, padding: 3, borderRadius: 8 }}>
-      {options.map(([v, label]) => (
-        <button key={v} onClick={() => onChange(v)} style={{ padding: '4px 14px', borderRadius: 6, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', background: value === v ? C.white : 'transparent', color: value === v ? C.ink : C.slate, boxShadow: value === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function SectionDivider({ label, count }: { label: string; count: number }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0 10px' }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>{label}</span>
-      {count > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, background: C.cloud, borderRadius: 100, padding: '1px 7px' }}>{count}</span>}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 10px' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: accent ?? C.muted, textTransform: 'uppercase', letterSpacing: '0.7px', whiteSpace: 'nowrap' }}>{label}</span>
+      {count > 0 && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: accent ?? C.muted, background: accent ? `${accent}18` : C.cloud, borderRadius: 100, padding: '1px 7px', border: accent ? `1px solid ${accent}30` : 'none' }}>{count}</span>
+      )}
       <div style={{ flex: 1, height: 1, background: C.border }} />
     </div>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Schedule picker (compact dropdown) ───────────────────────────────────────
+
+function SchedulePicker({ day, start, periodName, periods, onChange }: {
+  day: ScheduleDay; start: StartType; periodName: string
+  periods: { name: string; startTime: string; endTime: string }[]
+  onChange: (day: ScheduleDay, start: StartType, period: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pickDay, setPickDay] = useState(day)
+  const [pickStart, setPickStart] = useState(start)
+  const [pickPeriod, setPickPeriod] = useState(periodName)
+  const ref_ = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref_.current && !ref_.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const displayPeriod = periods.find(p => p.name === periodName)
+  const displayLabel = displayPeriod
+    ? `${day === 'red' ? 'Red' : 'Black'} · ${start === 'regular' ? 'Regular' : 'Late'} · ${displayPeriod.name.replace(/-\w+$/, '')}`
+    : 'Select schedule'
+
+  return (
+    <div ref={ref_} style={{ position: 'relative' }}>
+      <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName); setOpen(o => !o) }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, color: C.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {displayLabel}
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, padding: 16, width: 320 }}>
+          {/* Day */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Day</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {(['red', 'black'] as ScheduleDay[]).map(d => (
+              <button key={d} onClick={() => { setPickDay(d); setPickPeriod(SCHEDULES[d][pickStart][0]?.name ?? '') }}
+                style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: pickDay === d ? `2px solid ${d === 'red' ? C.red : C.ink}` : `1px solid ${C.border}`, background: pickDay === d ? (d === 'red' ? 'rgba(239,68,68,0.06)' : C.cloud) : C.white, color: pickDay === d ? (d === 'red' ? '#b91c1c' : C.ink) : C.slate, fontWeight: pickDay === d ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                {d === 'red' ? 'Red' : 'Black'}
+              </button>
+            ))}
+          </div>
+
+          {/* Start */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Start</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {(['regular', 'late'] as StartType[]).map(s => (
+              <button key={s} onClick={() => { setPickStart(s); setPickPeriod(SCHEDULES[pickDay][s][0]?.name ?? '') }}
+                style={{ flex: 1, padding: '7px 0', borderRadius: 7, border: pickStart === s ? `2px solid ${C.green}` : `1px solid ${C.border}`, background: pickStart === s ? C.greenBg : C.white, color: pickStart === s ? '#065f46' : C.slate, fontWeight: pickStart === s ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                {s === 'regular' ? 'Regular' : 'Late Start'}
+              </button>
+            ))}
+          </div>
+
+          {/* Period */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Period</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
+            {SCHEDULES[pickDay][pickStart].map(p => (
+              <button key={p.name} onClick={() => setPickPeriod(p.name)}
+                style={{ padding: '8px 12px', borderRadius: 7, border: pickPeriod === p.name ? `2px solid ${C.primary}` : `1px solid ${C.border}`, background: pickPeriod === p.name ? 'rgba(102,126,234,0.07)' : C.white, color: pickPeriod === p.name ? C.primary : C.ink, fontSize: 13, fontWeight: pickPeriod === p.name ? 600 : 400, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{p.name.replace(/-\w+$/, '')}</span>
+                <span style={{ color: C.muted, fontWeight: 400, fontSize: 11 }}>{fmt12(p.startTime)} – {fmt12(p.endTime)}</span>
+              </button>
+            ))}
+          </div>
+
+          <button onClick={() => { onChange(pickDay, pickStart, pickPeriod); setOpen(false) }}
+            style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: C.ink, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            Confirm
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Long-trip alert banner ───────────────────────────────────────────────────
+
+function LongTripAlert({ students, onMarkIn }: {
+  students: { name: string; outTimestamp: number | null }[]
+  onMarkIn: (name: string, outTimestamp: number | null) => void
+}) {
+  const [dismissed, setDismissed] = useState<string[]>([])
+  const alertStudents = students.filter(s =>
+    s.outTimestamp && Date.now() - s.outTimestamp > 600_000 && !dismissed.includes(s.name)
+  )
+  if (alertStudents.length === 0) return null
+
+  return (
+    <div style={{ background: 'rgba(239,68,68,0.06)', border: `1.5px solid rgba(239,68,68,0.25)`, borderRadius: 10, padding: '10px 14px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.red, flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <span style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', flex: 1 }}>
+        {alertStudents.map(s => s.name).join(', ')} {alertStudents.length === 1 ? 'has' : 'have'} been out over 10 minutes
+      </span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {alertStudents.map(s => (
+          <button key={s.name} onClick={() => onMarkIn(s.name, s.outTimestamp)}
+            style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            Mark {s.name} In
+          </button>
+        ))}
+        <button onClick={() => setDismissed(d => [...d, ...alertStudents.map(s => s.name)])}
+          style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid rgba(239,68,68,0.3)`, background: 'transparent', color: C.red, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { isWide, width } = useWindowSize()
   const allStudents = useStudents()
   const todayLogs = useTodayLogs()
   const [tick, setTick] = useState(0)
-  const [showStats, setShowStats] = useState(() => localStorage.getItem('db_showStats') !== 'false')
 
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(id) }, [])
-  useEffect(() => { localStorage.setItem('db_showStats', String(showStats)) }, [showStats])
 
   const [day, setDay] = useState<ScheduleDay>(() => (localStorage.getItem('db_day') as ScheduleDay) ?? 'red')
   const [start, setStart] = useState<StartType>(() => (localStorage.getItem('db_start') as StartType) ?? 'regular')
   const [periodName, setPeriodName] = useState(() => localStorage.getItem('db_period') ?? '')
-  useEffect(() => { localStorage.setItem('db_day', day); localStorage.setItem('db_start', start); localStorage.setItem('db_period', periodName) }, [day, start, periodName])
+
+  useEffect(() => {
+    localStorage.setItem('db_day', day)
+    localStorage.setItem('db_start', start)
+    localStorage.setItem('db_period', periodName)
+  }, [day, start, periodName])
 
   const periods = SCHEDULES[day][start]
   const period = periods.find(p => p.name === periodName) ?? periods[0]
   const sched = scheduleStr(day, start)
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (!periods.find(p => p.name === periodName)) setPeriodName(periods[0]?.name ?? '') }, [day, start])
 
@@ -91,24 +199,27 @@ export default function Dashboard() {
       await Promise.all(
         Object.entries(all)
           .filter(([, s]) => s.status === 'out' && s.schedule === sched && s.period === period.name)
-          .map(async ([key, s]) => writeAutoReset({ name: s.name, period: s.period, schedule: s.schedule, studentKey: key, outStart: s.outTimestamp ?? s.timestamp, resetTime: now, date: today }))
+          .map(async ([key, s]) => writeAutoReset({
+            name: s.name, period: s.period, schedule: s.schedule,
+            studentKey: key, outStart: s.outTimestamp ?? s.timestamp, resetTime: now, date: today,
+          }))
       )
     }, 30000)
     return () => clearInterval(id)
   }, [period, isPeriodActive, sched])
 
-  // Last trip per student today
   const lastTripMap = useMemo(() => {
     const m: Record<string, number> = {}; const ts: Record<string, number> = {}
     todayLogs.forEach(l => {
       if (['in', 'manual-in', 'auto-reset'].includes(l.action) && l.duration && l.schedule === sched && l.period === period?.name) {
-        if (!ts[l.studentName] || l.timestamp > ts[l.studentName]) { m[l.studentName] = l.duration; ts[l.studentName] = l.timestamp }
+        if (!ts[l.studentName] || l.timestamp > ts[l.studentName]) {
+          m[l.studentName] = l.duration; ts[l.studentName] = l.timestamp
+        }
       }
     })
     return m
   }, [todayLogs, sched, period])
 
-  // Trip count per student today
   const tripCountMap = useMemo(() => {
     const m: Record<string, number> = {}
     todayLogs.forEach(l => {
@@ -119,16 +230,11 @@ export default function Dashboard() {
     return m
   }, [todayLogs, sched, period])
 
-  // 12-hour cutoff — only treat a student as "active today" if they had a trip in last 12h
   const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000
-
-  // Set of students with any log entry in the last 12 hours for this period
   const recentlyActiveSet = useMemo(() => {
     const s = new Set<string>()
     todayLogs.forEach(l => {
-      if (l.schedule === sched && l.period === period?.name && l.timestamp > twelveHoursAgo) {
-        s.add(l.studentName)
-      }
+      if (l.schedule === sched && l.period === period?.name && l.timestamp > twelveHoursAgo) s.add(l.studentName)
     })
     return s
   }, [todayLogs, sched, period, twelveHoursAgo])
@@ -141,7 +247,7 @@ export default function Dashboard() {
       return {
         name,
         status: (rec?.status ?? 'in') as 'in' | 'out',
-        hasScanned: recentlyActiveSet.has(name),   // true only if active in last 12h
+        hasScanned: recentlyActiveSet.has(name),
         outTimestamp: rec?.outTimestamp ?? null,
         lastTrip: lastTripMap[name] ?? null,
         tripCount: tripCountMap[name] ?? 0,
@@ -149,49 +255,97 @@ export default function Dashboard() {
     })
   }, [allStudents, period, day, start, lastTripMap, tripCountMap, recentlyActiveSet])
 
-  const relevantLogs = todayLogs.filter(l => ['in', 'manual-in', 'auto-reset'].includes(l.action) && l.schedule === sched && l.period === period?.name && l.duration)
+  const relevantLogs = todayLogs.filter(l =>
+    ['in', 'manual-in', 'auto-reset'].includes(l.action) &&
+    l.schedule === sched && l.period === period?.name && l.duration
+  )
   const totalMs = relevantLogs.reduce((s, l) => s + (l.duration ?? 0), 0)
-  const outCount = roster.filter(s => s.status === 'out').length
 
   const manualAction = useCallback(async (name: string, action: 'in' | 'out', outTimestamp: number | null) => {
     if (action === 'out') {
-      const out = Object.values(allStudents).filter(s => s.status === 'out' && s.period === period?.name && s.schedule === sched).length
+      const out = Object.values(allStudents).filter(
+        s => s.status === 'out' && s.period === period?.name && s.schedule === sched
+      ).length
       if (out >= MAX_OUT) { alert(`Max ${MAX_OUT} students out at a time`); return }
     }
     const now = Date.now(); const today = todayStr()
-    await writeManualAction({ day, start, name, period: period!.name, action: `manual-${action}` as 'manual-in' | 'manual-out', outStart: outTimestamp, inTime: action === 'in' ? now : null, now, date: today })
+    await writeManualAction({
+      day, start, name, period: period!.name,
+      action: `manual-${action}` as 'manual-in' | 'manual-out',
+      outStart: outTimestamp, inTime: action === 'in' ? now : null, now, date: today,
+    })
   }, [allStudents, period, sched, day, start])
 
-  // Split roster into three sections
-  const studentsOut     = roster.filter(s => s.status === 'out')
+  // Sort out students: longest out first
+  const studentsOut = roster
+    .filter(s => s.status === 'out')
+    .sort((a, b) => (a.outTimestamp ?? 0) - (b.outTimestamp ?? 0)) // earliest = longest out
+
   const studentsIn      = roster.filter(s => s.status === 'in' && s.hasScanned)
   const studentsUnknown = roster.filter(s => !s.hasScanned)
+
+  // Useful quick stats — always visible in header
+  const over10Count = relevantLogs.filter(l => (l.duration ?? 0) > 600_000).length
+  const avgMs = relevantLogs.length > 0 ? totalMs / relevantLogs.length : 0
+
+  // Column count
+  const cols = isWide ? 8 : width >= 1200 ? 7 : width >= 900 ? 6 : 5
 
   void tick
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+      `}</style>
+
       <div style={{ padding: '1rem 1.5rem' }}>
 
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '2rem', color: C.ink, margin: 0 }}>Dashboard</h1>
-            {period && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: isPeriodActive ? C.green : C.muted, display: 'inline-block' }} />
-                <span style={{ fontSize: 13, color: C.slate }}>
-                  {period.name} · {fmt12(period.startTime)} – {fmt12(period.endTime)} · {isPeriodActive ? 'Active' : 'Not active'}
-                </span>
+        {/* ── Header ───────────────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem', flexWrap: 'wrap' }}>
+
+          {/* Title + period status */}
+          <div style={{ marginRight: 4 }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', color: C.ink, margin: 0, lineHeight: 1 }}>Dashboard</h1>
+          </div>
+
+          {/* Active indicator */}
+          {period && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 100, background: isPeriodActive ? 'rgba(16,185,129,0.1)' : C.cloud, border: `1px solid ${isPeriodActive ? 'rgba(16,185,129,0.25)' : C.border}` }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPeriodActive ? C.green : C.muted, display: 'inline-block' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: isPeriodActive ? '#065f46' : C.slate }}>
+                {isPeriodActive ? 'Active' : 'Not active'} · {fmt12(period.startTime)} – {fmt12(period.endTime)}
+              </span>
+            </div>
+          )}
+
+          {/* Quick stats — always visible */}
+          <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
+            <div style={{ padding: '4px 12px', borderRadius: 100, background: studentsOut.length > 0 ? 'rgba(239,68,68,0.1)' : C.cloud, border: `1px solid ${studentsOut.length > 0 ? 'rgba(239,68,68,0.25)' : C.border}` }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: studentsOut.length > 0 ? C.red : C.muted }}>{studentsOut.length} out</span>
+            </div>
+            {relevantLogs.length > 0 && (
+              <div style={{ padding: '4px 12px', borderRadius: 100, background: C.cloud, border: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.slate }}>{relevantLogs.length} trips · avg {fmtDuration(avgMs)}</span>
+              </div>
+            )}
+            {over10Count > 0 && (
+              <div style={{ padding: '4px 12px', borderRadius: 100, background: 'rgba(239,68,68,0.08)', border: `1px solid rgba(239,68,68,0.2)` }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.red }}>{over10Count} over 10 min</span>
               </div>
             )}
           </div>
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Schedule picker + nav */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Stats toggle */}
-            <button onClick={() => setShowStats(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: showStats ? C.ink : C.white, color: showStats ? '#fff' : C.slate, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-              {showStats ? 'Hide stats' : 'Show stats'}
-            </button>
+            <SchedulePicker
+              day={day} start={start} periodName={periodName} periods={periods}
+              onChange={(d, s, p) => { setDay(d); setStart(s); setPeriodName(p) }}
+            />
             <NavIcon to="/analytics" title="Analytics">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </NavIcon>
@@ -201,74 +355,38 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Filters ─────────────────────────────────────────────────────────── */}
-        <div style={{ background: C.white, borderRadius: 12, padding: '1rem 1.5rem', border: `1px solid ${C.border}`, marginBottom: '1rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Schedule</div>
-            <SegmentedControl options={[['red', 'Red'], ['black', 'Black']]} value={day} onChange={v => setDay(v as ScheduleDay)} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Start</div>
-            <SegmentedControl options={[['regular', 'Regular'], ['late', 'Late']]} value={start} onChange={v => setStart(v as StartType)} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Period</div>
-            <SegmentedControl
-              options={periods.map(p => [p.name, p.name.replace(/-\w+$/, '')] as [string, string])}
-              value={period?.name ?? ''}
-              onChange={v => setPeriodName(v)}
-            />
-          </div>
-        </div>
+        {/* ── Long trip alert ───────────────────────────────────────────────────── */}
+        <LongTripAlert students={studentsOut} onMarkIn={(name, ts) => manualAction(name, 'in', ts)} />
 
-        {/* ── Stats (collapsible) ──────────────────────────────────────────────── */}
-        {showStats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            {[
-              { label: 'Out now', value: outCount, color: outCount > 0 ? C.red : C.ink },
-              { label: 'In class', value: studentsIn.length, color: C.green },
-              { label: 'Trips today', value: relevantLogs.length, color: C.primary },
-              { label: 'Total time', value: fmtDuration(totalMs), color: C.amber },
-              { label: 'Avg duration', value: relevantLogs.length > 0 ? fmtDuration(totalMs / relevantLogs.length) : '—', color: '#8b5cf6' },
-              { label: '> 10 min', value: relevantLogs.filter(l => (l.duration ?? 0) > 600000).length, color: C.red },
-            ].map(s => (
-              <div key={s.label} style={{ background: C.white, borderRadius: 10, padding: '0.75rem 1rem', border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Student sections ─────────────────────────────────────────────────── */}
+        {/* ── Student grid ──────────────────────────────────────────────────────── */}
         <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: '0.25rem 1.25rem 1.5rem' }}>
 
-          {/* Currently Out */}
+          {/* Currently Out — dominant, sorted longest first */}
           {studentsOut.length > 0 && (
             <>
-              <SectionDivider label="Currently Out" count={studentsOut.length} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isWide ? 8 : width >= 1200 ? 7 : width >= 900 ? 6 : 5}, 1fr)`, gap: '0.6rem' }}>
-                {studentsOut.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} />)}
+              <SectionDivider label="Currently Out" count={studentsOut.length} accent={C.red} />
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.6rem' }}>
+                {studentsOut.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut />)}
               </div>
             </>
           )}
 
-          {/* Back in / scanned today */}
+          {/* Back In */}
           {studentsIn.length > 0 && (
             <>
-              <SectionDivider label={studentsOut.length > 0 ? 'Back In' : 'In Class'} count={studentsIn.length} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isWide ? 8 : width >= 1200 ? 7 : width >= 900 ? 6 : 5}, 1fr)`, gap: '0.6rem' }}>
-                {studentsIn.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} />)}
+              <SectionDivider label={studentsOut.length > 0 ? 'Back In' : 'In Class'} count={studentsIn.length} accent={C.green} />
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.5rem' }}>
+                {studentsIn.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut={false} />)}
               </div>
             </>
           )}
 
-          {/* Not yet scanned */}
+          {/* Not Scanned — de-emphasized */}
           {studentsUnknown.length > 0 && (
             <>
               <SectionDivider label="Not Scanned" count={studentsUnknown.length} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isWide ? 8 : width >= 1200 ? 7 : width >= 900 ? 6 : 5}, 1fr)`, gap: '0.6rem' }}>
-                {studentsUnknown.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} />)}
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.4rem', opacity: 0.7 }}>
+                {studentsUnknown.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut={false} compact />)}
               </div>
             </>
           )}
@@ -280,69 +398,90 @@ export default function Dashboard() {
 
 // ─── Student Tile ─────────────────────────────────────────────────────────────
 
-function StudentTile({ s, isPeriodActive, onAction, tick }: {
+function StudentTile({ s, isPeriodActive, onAction, tick, isOut, compact }: {
   s: { name: string; status: 'in' | 'out'; hasScanned: boolean; outTimestamp: number | null; lastTrip: number | null; tripCount: number }
   isPeriodActive: boolean
   onAction: (name: string, action: 'in' | 'out', outTimestamp: number | null) => void
   tick: number
+  isOut: boolean
+  compact?: boolean
 }) {
   void tick
-  const elapsed = s.status === 'out' && s.outTimestamp ? Date.now() - s.outTimestamp : 0
-  const isOut = s.status === 'out'
+  const elapsed = isOut && s.outTimestamp ? Date.now() - s.outTimestamp : 0
   const over10 = elapsed > 600_000
   const over5  = elapsed > 300_000
 
-  // Compact layout: no reserved space, height shrinks to content
-  const showTimer    = isOut && s.outTimestamp
-  const showLastTrip = !isOut && s.lastTrip
+  // Compact (not-scanned) tile — just name + mark out
+  if (compact) {
+    return (
+      <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 500, fontSize: 13, color: C.slate }}>{s.name}</span>
+        {isPeriodActive && (
+          <button onClick={() => onAction(s.name, 'out', s.outTimestamp)}
+            style={{ padding: '2px 8px', borderRadius: 5, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: 'rgba(239,68,68,0.08)', color: C.red }}>
+            Mark Out
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{
       borderRadius: 10,
-      border: `1px solid ${isOut ? C.redBorder : s.hasScanned ? C.greenBorder : C.border}`, borderWidth: isOut ? '1.5px' : s.hasScanned ? '1.5px' : '1px',
-      background: isOut ? C.redBg : C.white,
-      padding: '12px 14px',
-      transition: 'border-color 0.2s, background 0.2s',
+      border: `${isOut ? (over10 ? '3px' : '2.5px') : '1.5px'} solid ${isOut ? (over10 ? C.red : C.redBorder) : s.hasScanned ? C.greenBorder : C.border}`,
+      background: isOut ? (over10 ? 'rgba(239,68,68,0.08)' : C.redBg) : C.white,
+      padding: isOut ? '14px' : '10px 12px',
+      display: 'flex', flexDirection: 'column',
+      animation: over10 && isOut ? 'glowPulse 2s ease-in-out infinite' : 'none',
+      transition: 'all 0.2s',
       opacity: isPeriodActive ? 1 : 0.55,
-      display: 'flex',
-      flexDirection: 'column',
     }}>
-      {/* Row 1: name + badge */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showTimer || showLastTrip ? 6 : 10 }}>
-        <div style={{ fontWeight: 600, fontSize: 15, color: C.ink }}>{s.name}</div>
+      {/* Name + badge */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isOut ? 8 : 6 }}>
+        <div style={{ fontWeight: 600, fontSize: isOut ? 15 : 14, color: isOut ? (over10 ? '#991b1b' : C.ink) : C.ink }}>{s.name}</div>
         <span style={{
-          fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, flexShrink: 0, marginLeft: 6,
-          letterSpacing: '0.5px',
-          background: isOut ? 'rgba(239,68,68,0.15)' : s.hasScanned ? 'rgba(16,185,129,0.15)' : C.cloud,
-          color: isOut ? C.red : s.hasScanned ? C.green : C.muted,
+          fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 4, flexShrink: 0, marginLeft: 4, letterSpacing: '0.5px',
+          background: s.status === 'out' ? 'rgba(239,68,68,0.15)' : s.hasScanned ? 'rgba(16,185,129,0.15)' : C.cloud,
+          color: s.status === 'out' ? C.red : s.hasScanned ? C.green : C.muted,
         }}>
-          {isOut ? 'OUT' : s.hasScanned ? 'IN' : '—'}
+          {s.status === 'out' ? 'OUT' : s.hasScanned ? 'IN' : '—'}
         </span>
       </div>
 
-      {/* Row 2: timer or last trip */}
-      {showTimer && (
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.35rem', fontWeight: 600, color: over10 ? C.red : over5 ? C.amber : C.ink, letterSpacing: '-0.5px', marginBottom: 10 }}>
+      {/* Timer — prominent for out students */}
+      {isOut && s.outTimestamp && (
+        <div style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: over10 ? '1.5rem' : '1.25rem',
+          fontWeight: 700,
+          color: over10 ? C.red : over5 ? C.amber : C.ink,
+          letterSpacing: '-0.5px',
+          marginBottom: 10,
+          lineHeight: 1,
+        }}>
           {fmt(elapsed)}
         </div>
       )}
-      {showLastTrip && (
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-          {fmtDuration(s.lastTrip!)}{s.tripCount > 1 ? ` · ${s.tripCount} trips` : ''}
+
+      {/* Last trip info for in students */}
+      {!isOut && s.lastTrip && (
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
+          {fmtDuration(s.lastTrip)}{s.tripCount > 1 ? ` · ${s.tripCount} trips` : ''}
         </div>
       )}
 
-      {/* Row 3: action button */}
+      {/* Action */}
       {isPeriodActive && (
-        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+        <div style={{ marginTop: 'auto' }}>
           {isOut ? (
             <button onClick={() => onAction(s.name, 'in', s.outTimestamp)}
-              style={{ width: '100%', padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(16,185,129,0.12)', color: C.green }}>
+              style={{ width: '100%', padding: '6px 0', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(16,185,129,0.12)', color: C.green }}>
               Mark In
             </button>
           ) : (
             <button onClick={() => onAction(s.name, 'out', s.outTimestamp)}
-              style={{ width: '100%', padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(239,68,68,0.09)', color: C.red }}>
+              style={{ width: '100%', padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: 'rgba(239,68,68,0.08)', color: C.red }}>
               Mark Out
             </button>
           )}
