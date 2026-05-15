@@ -7,7 +7,7 @@ import { useStudents } from '../hooks/useStudents'
 import { useTodayLogs } from '../hooks/useLogs'
 import { SCHEDULES } from '../data/schedules'
 import { useRoster } from '../hooks/useRoster'
-import { fmtDuration, fmt, fmt12, MAX_OUT, todayStr } from '../utils/schedule'
+import { fmtDuration, fmt, MAX_OUT, todayStr } from '../utils/schedule'
 import type { ScheduleDay, StartType, StudentRecord } from '../types'
 import { useWindowSize } from '../hooks/useWindowSize'
 
@@ -43,10 +43,10 @@ function SectionDivider({ label, count, accent }: { label: string; count: number
 
 // ─── Schedule picker (compact dropdown) ───────────────────────────────────────
 
-function SchedulePicker({ day, start, periodName, periods, onChange }: {
+function SchedulePicker({ day, start, periodName, onChange, roster }: {
   day: ScheduleDay; start: StartType; periodName: string
-  periods: { name: string; startTime: string; endTime: string }[]
   onChange: (day: ScheduleDay, start: StartType, period: string) => void
+  roster: import('../firebase/roster').RosterData
 }) {
   const [open, setOpen] = useState(false)
   const [pickDay, setPickDay] = useState(day)
@@ -62,17 +62,12 @@ function SchedulePicker({ day, start, periodName, periods, onChange }: {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const displayPeriod = periods.find(p => p.name === periodName)
-  const displayLabel = displayPeriod
-    ? `${day === 'red' ? 'Red' : 'Black'} · ${start === 'regular' ? 'Regular' : 'Late'} · ${displayPeriod.name.replace(/-\w+$/, '')}`
-    : 'Select schedule'
-
   return (
     <div ref={ref_} style={{ position: 'relative' }}>
       <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName); setOpen(o => !o) }}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.white, color: C.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        {displayLabel}
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        Schedule
       </button>
 
       {open && (
@@ -102,13 +97,21 @@ function SchedulePicker({ day, start, periodName, periods, onChange }: {
           {/* Period */}
           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Period</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 14 }}>
-            {SCHEDULES[pickDay][pickStart].map(p => (
-              <button key={p.name} onClick={() => setPickPeriod(p.name)}
-                style={{ padding: '8px 12px', borderRadius: 7, border: pickPeriod === p.name ? `2px solid ${C.primary}` : `1px solid ${C.border}`, background: pickPeriod === p.name ? 'rgba(102,126,234,0.07)' : C.white, color: pickPeriod === p.name ? C.primary : C.ink, fontSize: 13, fontWeight: pickPeriod === p.name ? 600 : 400, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
-                <span>{p.name.replace(/-\w+$/, '')}</span>
-                <span style={{ color: C.muted, fontWeight: 400, fontSize: 11 }}>{fmt12(p.startTime)} – {fmt12(p.endTime)}</span>
-              </button>
-            ))}
+            {SCHEDULES[pickDay][pickStart].map(p => {
+              const pNum = p.name.match(/\d+/)?.[0] ?? ''
+              const pDay = pickDay === 'red' ? 'Red' : 'Black'
+              const periodLabel = `${pDay} ${pNum}`
+              const rKey = `${pickDay}_${pNum}`
+              const rosterData = roster[rKey]
+              const className = rosterData?.name || p.name.replace(/^[^-]+-/, '')
+              return (
+                <button key={p.name} onClick={() => setPickPeriod(p.name)}
+                  style={{ padding: '8px 12px', borderRadius: 7, border: pickPeriod === p.name ? `2px solid ${C.primary}` : `1px solid ${C.border}`, background: pickPeriod === p.name ? 'rgba(102,126,234,0.07)' : C.white, color: pickPeriod === p.name ? C.primary : C.ink, fontSize: 13, fontWeight: pickPeriod === p.name ? 600 : 400, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{className}</span>
+                  <span style={{ color: pickPeriod === p.name ? C.primary : C.muted, fontWeight: 400, fontSize: 11 }}>{periodLabel}</span>
+                </button>
+              )
+            })}
           </div>
 
           <button onClick={() => { onChange(pickDay, pickStart, pickPeriod); setOpen(false) }}
@@ -315,25 +318,33 @@ export default function Dashboard() {
       <div style={{ padding: '1rem 1.5rem' }}>
 
         {/* ── Header ───────────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', gap: 12 }}>
 
-          {/* Title + period status */}
-          <div style={{ marginRight: 4 }}>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', color: C.ink, margin: 0, lineHeight: 1 }}>Dashboard</h1>
+          {/* Left: stacked title like scanner */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.8rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>Dashboard</h1>
+            {period ? (
+              <>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>
+                  {rosterPeriod?.name || period.name.replace(/^[^-]+-/, '')}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPeriodActive ? C.green : C.muted, display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: isPeriodActive ? '#065f46' : C.muted }}>
+                    {isPeriodActive ? 'Active' : 'Not active'}
+                  </span>
+                  <span style={{ fontSize: 11, color: C.muted }}>
+                    · {period.name.replace(/([A-Za-z]+)(\d+).*/, '$1 $2')}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <span style={{ fontSize: 13, color: C.muted }}>No period selected</span>
+            )}
           </div>
 
-          {/* Active indicator */}
-          {period && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 100, background: isPeriodActive ? 'rgba(16,185,129,0.1)' : C.cloud, border: `1px solid ${isPeriodActive ? 'rgba(16,185,129,0.25)' : C.border}` }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: isPeriodActive ? C.green : C.muted, display: 'inline-block' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: isPeriodActive ? '#065f46' : C.slate }}>
-                {isPeriodActive ? 'Active' : 'Not active'} · {rosterPeriod?.name ? `${rosterPeriod.name} · ` : ''}{fmt12(period.startTime)} – {fmt12(period.endTime)}
-              </span>
-            </div>
-          )}
-
-          {/* Quick stats — always visible */}
-          <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
+          {/* Center: quick stats */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <div style={{ padding: '4px 12px', borderRadius: 100, background: studentsOut.length > 0 ? 'rgba(239,68,68,0.1)' : C.cloud, border: `1px solid ${studentsOut.length > 0 ? 'rgba(239,68,68,0.25)' : C.border}` }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: studentsOut.length > 0 ? C.red : C.muted }}>{studentsOut.length} out</span>
             </div>
@@ -349,13 +360,10 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
-
-          {/* Schedule picker + nav */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Right: schedule + nav */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <SchedulePicker
-              day={day} start={start} periodName={periodName} periods={periods}
+              day={day} start={start} periodName={periodName} roster={firebaseRoster}
               onChange={(d, s, p) => { setDay(d); setStart(s); setPeriodName(p) }}
             />
             <NavIcon to="/analytics" title="Analytics">

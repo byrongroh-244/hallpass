@@ -463,9 +463,8 @@ export default function Scanner() {
       {/* Settings */}
       {screen === 'settings' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isIPadLandscape ? 420 : 340, maxHeight: '74vh', overflowY: 'auto' }}>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.4rem', color: C.ink, marginBottom: 4 }}>Schedule</h2>
-            <p style={{ fontSize: 13, color: C.slate, marginBottom: 20 }}>Select your options then tap Confirm.</p>
+          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isIPadLandscape ? 420 : 340, maxHeight: '65vh', overflowY: 'auto' }}>
+
 
             <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Day</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -483,12 +482,20 @@ export default function Scanner() {
 
             <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Period</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
-              {SCHEDULES[pickDay][pickStart].map(p => (
-                <button key={p.name} onClick={() => setPickPeriod(p.name)} style={{ padding: '10px 14px', borderRadius: 8, border: pickPeriod === p.name ? `2px solid ${C.primary}` : `1px solid ${C.border}`, background: pickPeriod === p.name ? 'rgba(102,126,234,0.08)' : C.white, color: pickPeriod === p.name ? C.primary : C.ink, fontSize: 14, fontWeight: pickPeriod === p.name ? 700 : 400, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{p.name}</span>
-                  <span style={{ color: C.slate, fontWeight: 400, fontSize: 12 }}>{fmt12(p.startTime)} – {fmt12(p.endTime)}</span>
-                </button>
-              ))}
+              {SCHEDULES[pickDay][pickStart].map(p => {
+                const pNum = p.name.match(/\d+/)?.[0] ?? ''
+                const pDay = pickDay === 'red' ? 'Red' : 'Black'
+                const periodLabel = `${pDay} ${pNum}`
+                const rKey = `${pickDay}_${pNum}`
+                const className = roster[rKey]?.name || p.name.replace(/^[^-]+-/, '')
+                return (
+                  <button key={p.name} onClick={() => setPickPeriod(p.name)}
+                    style={{ padding: '10px 14px', borderRadius: 8, border: pickPeriod === p.name ? `2px solid ${C.primary}` : `1px solid ${C.border}`, background: pickPeriod === p.name ? 'rgba(102,126,234,0.08)' : C.white, color: pickPeriod === p.name ? C.primary : C.ink, fontSize: 14, fontWeight: pickPeriod === p.name ? 700 : 400, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{className}</span>
+                    <span style={{ color: pickPeriod === p.name ? C.primary : C.muted, fontWeight: 400, fontSize: 12 }}>{periodLabel}</span>
+                  </button>
+                )
+              })}
             </div>
 
             <button onClick={() => {
