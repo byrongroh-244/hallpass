@@ -81,8 +81,7 @@ export default function Scanner() {
     day: ScheduleDay; start: StartType; outTimes: Record<string, number>
   }>({ name: '', action: 'out', period: null, day: 'red', start: 'regular', outTimes: {} })
 
-  const { isTablet, width } = useWindowSize()
-  const isAboveTablet = width > 1024
+  const { isIPadLandscape, isLargerThanIPad } = useWindowSize()
   const { roster } = useRoster()
   const periods = SCHEDULES[day][start]
   const period: Period | null = periods.find(p => p.name === periodName) ?? periods[0] ?? null
@@ -247,7 +246,7 @@ export default function Scanner() {
   const isCheckingOut = swipeAction === 'out'
   const accent = isCheckingOut ? C.red : C.green
   const accentBg = isCheckingOut ? C.redBg : C.greenBg
-  const thumbSize = isTablet ? 48 : 44
+  const thumbSize = isIPadLandscape ? 48 : 44
   const thumbLeft = swipeProgress === 0 ? '4px' : `calc(4px + ${swipeProgress} * (100% - ${thumbSize + 8}px))`
 
   // Local clock — updates every second via tick
@@ -258,9 +257,6 @@ export default function Scanner() {
     const ampm = now.getHours() >= 12 ? 'PM' : 'AM'
     return { hm: `${h}:${m}`, ampm }
   })()
-
-  // Landscape: two-column layout (left = info + students, right = big clock)
-  const isLandscape = isTablet
 
   return (
     <div style={{ minHeight: '100vh', height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', sans-serif", overflow: 'hidden' }}>
@@ -285,8 +281,8 @@ export default function Scanner() {
           )}
         </div>
 
-        {/* Center clock — only shown above iPad width */}
-        {isAboveTablet && (
+        {/* Center clock — shown on all layouts except iPad landscape */}
+        {!isIPadLandscape && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
@@ -315,7 +311,7 @@ export default function Scanner() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* Left: student grid */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: isLandscape ? '16px 20px' : '12px 14px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: isIPadLandscape ? '16px 20px' : '12px 14px' }}>
           {!period ? (
             <p style={{ textAlign: 'center', padding: '2rem', color: C.slate, fontSize: 14 }}>No period selected. Tap Schedule.</p>
           ) : (
@@ -324,18 +320,18 @@ export default function Scanner() {
               {outSet.size > 0 && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Students Out</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: isLandscape ? 'repeat(5, minmax(0, 140px))' : 'repeat(3, 1fr)', gap: isLandscape ? 10 : 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, minmax(0, 140px))' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
                     {periodStudents.filter(n => outSet.has(n)).map(name => {
                       const elapsed = Date.now() - (outTimes[name] ?? Date.now())
                       return (
                         <button key={name} onClick={() => openSwipe(name)}
-                          style={{ border: `1.5px solid ${C.redBorder}`, background: C.redBg, borderRadius: 10, padding: isAboveTablet ? '18px 8px' : isLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
+                          style={{ border: `1.5px solid ${C.redBorder}`, background: C.redBg, borderRadius: 10, padding: isLargerThanIPad ? '20px 10px' : isIPadLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
                           onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
                           onMouseUp={e => (e.currentTarget.style.transform = '')}
                           onMouseLeave={e => (e.currentTarget.style.transform = '')}
                         >
-                          <div style={{ fontSize: isAboveTablet ? 17 : isLandscape ? 15 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 4 }}>{name}</div>
-                          <div style={{ fontSize: isAboveTablet ? 16 : isLandscape ? 14 : 12, fontWeight: 700, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
+                          <div style={{ fontSize: isLargerThanIPad ? 16 : isIPadLandscape ? 15 : 12, fontWeight: 600, color: '#b91c1c', marginBottom: 4 }}>{name}</div>
+                          <div style={{ fontSize: isLargerThanIPad ? 15 : isIPadLandscape ? 14 : 12, fontWeight: 700, color: C.red, fontVariantNumeric: 'tabular-nums' }}>{fmt(elapsed)}</div>
                         </button>
                       )
                     })}
@@ -346,15 +342,15 @@ export default function Scanner() {
               {/* In Class */}
               <div>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Tap your name</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isLandscape ? 'repeat(5, minmax(0, 140px))' : 'repeat(3, 1fr)', gap: isLandscape ? 10 : 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, minmax(0, 140px))' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
                   {periodStudents.filter(n => !outSet.has(n)).map(name => (
                     <button key={name} onClick={() => openSwipe(name)}
-                      style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isAboveTablet ? '18px 8px' : isLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
+                      style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isLargerThanIPad ? '20px 10px' : isIPadLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
                       onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.94)')}
                       onMouseUp={e => (e.currentTarget.style.transform = '')}
                       onMouseLeave={e => (e.currentTarget.style.transform = '')}
                     >
-                      <div style={{ fontSize: isAboveTablet ? 17 : isLandscape ? 15 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
+                      <div style={{ fontSize: isLargerThanIPad ? 16 : isIPadLandscape ? 15 : 12, fontWeight: 600, color: C.ink }}>{name}</div>
                     </button>
                   ))}
                 </div>
@@ -363,9 +359,9 @@ export default function Scanner() {
           )}
         </div>
 
-        {/* Right: big clock panel (landscape only) */}
-        {isLandscape && (
-          <div style={{ width: 220, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: `1px solid rgba(255,255,255,0.08)` }}>
+        {/* Right: big clock panel — iPad landscape only */}
+        {isIPadLandscape && !isLargerThanIPad && (
+          <div style={{ width: 200, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: `1px solid rgba(255,255,255,0.08)` }}>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '4.5rem', fontWeight: 700, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
               {clockTime.hm}
             </div>
@@ -385,7 +381,7 @@ export default function Scanner() {
       {/* Swipe overlay */}
       {screen === 'swipe' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 20, padding: isTablet ? '32px 32px 28px' : '28px 24px 24px', width: isTablet ? 420 : 300, textAlign: 'center' }}>
+          <div style={{ background: C.white, borderRadius: 20, padding: isIPadLandscape ? '32px 32px 28px' : '28px 24px 24px', width: isIPadLandscape ? 420 : 300, textAlign: 'center' }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="26" height="26" fill="none" stroke={accent} viewBox="0 0 24 24">
                 {isCheckingOut
@@ -398,7 +394,7 @@ export default function Scanner() {
             <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 24 }}>{swipeName}</div>
 
             {/* Swipe track — pointer events handle both mouse and touch */}
-            <div ref={trackRef} style={{ position: 'relative', height: isTablet ? 64 : 56, background: C.cloud, borderRadius: isTablet ? 32 : 28, border: `1px solid ${C.border}`, marginBottom: 16, touchAction: 'none' }}>
+            <div ref={trackRef} style={{ position: 'relative', height: isIPadLandscape ? 64 : 56, background: C.cloud, borderRadius: isIPadLandscape ? 32 : 28, border: `1px solid ${C.border}`, marginBottom: 16, touchAction: 'none' }}>
               <div style={{ position: 'absolute', inset: 0, background: accentBg, width: `${swipeProgress * 100}%`, borderRadius: 28, pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <span style={{ fontSize: 13, color: C.slate, opacity: swipeProgress > 0.15 ? 0 : 1, transition: 'opacity 0.15s' }}>Swipe to confirm →</span>
@@ -408,7 +404,7 @@ export default function Scanner() {
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
-                style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: thumbLeft, width: isTablet ? 48 : 44, height: isTablet ? 48 : 44, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', transition: swipeProgress === 0 ? 'left 0.25s' : 'none' }}
+                style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: thumbLeft, width: isIPadLandscape ? 48 : 44, height: isIPadLandscape ? 48 : 44, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', transition: swipeProgress === 0 ? 'left 0.25s' : 'none' }}
               >
                 <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
               </div>
@@ -424,14 +420,14 @@ export default function Scanner() {
       {/* Welcome back */}
       {screen === 'welcome' && (
         <Overlay>
-          <div onClick={() => setScreen('main')} style={{ background: C.white, borderRadius: 20, padding: isTablet ? '40px 36px' : '28px 24px', width: isTablet ? 360 : 280, textAlign: 'center', cursor: 'pointer' }}>
+          <div onClick={() => setScreen('main')} style={{ background: C.white, borderRadius: 20, padding: isIPadLandscape ? '40px 36px' : '28px 24px', width: isIPadLandscape ? 360 : 280, textAlign: 'center', cursor: 'pointer' }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="28" height="28" fill="none" stroke={C.green} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
             </div>
-            <div style={{ fontSize: isTablet ? 24 : 18, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 4 }}>Welcome back!</div>
+            <div style={{ fontSize: isIPadLandscape ? 24 : 18, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 4 }}>Welcome back!</div>
             <div style={{ fontSize: 14, color: C.slate, marginBottom: 12 }}>{welcomeName}</div>
             <div style={{ fontSize: 12, color: C.slate, marginBottom: 4 }}>Trip time</div>
-            <div style={{ fontSize: isTablet ? 56 : 42, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>{welcomeTime}</div>
+            <div style={{ fontSize: isIPadLandscape ? 56 : 42, fontWeight: 700, fontFamily: "'Fraunces', serif", color: C.ink, marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>{welcomeTime}</div>
             <WelcomeBar />
           </div>
         </Overlay>
@@ -440,7 +436,7 @@ export default function Scanner() {
       {/* Settings */}
       {screen === 'settings' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isTablet ? 420 : 340, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isIPadLandscape ? 420 : 340, maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.4rem', color: C.ink, marginBottom: 4 }}>Schedule</h2>
             <p style={{ fontSize: 13, color: C.slate, marginBottom: 20 }}>Select your options then tap Confirm.</p>
 
@@ -500,7 +496,7 @@ export default function Scanner() {
       {/* ── Error popups ────────────────────────────────────────────────────── */}
       {errorPopup?.type === 'maxOut' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isTablet ? 380 : 320, textAlign: 'center' }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isIPadLandscape ? 380 : 320, textAlign: 'center' }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <svg width="26" height="26" fill="none" stroke={C.red} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
             </div>
@@ -518,7 +514,7 @@ export default function Scanner() {
 
       {errorPopup?.type === 'notActive' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isTablet ? 380 : 320, textAlign: 'center' }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: isIPadLandscape ? 380 : 320, textAlign: 'center' }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <svg width="26" height="26" fill="none" stroke="#f59e0b" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
