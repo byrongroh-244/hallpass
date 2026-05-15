@@ -282,23 +282,23 @@ export default function Scanner() {
     <div style={{ minHeight: '100vh', height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', sans-serif", overflow: 'hidden' }}>
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
 
         {/* Left: class name as title, period label + times below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {period ? (
             <>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.8rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '2.15rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>
                 {rosterEntry?.name || period.name.replace(/^[^-]+-/, '')}
               </h1>
-              <span style={{ fontSize: 14, fontWeight: 600, color: C.muted, lineHeight: 1.3 }}>
+              <span style={{ fontSize: 17, fontWeight: 600, color: C.muted, lineHeight: 1.3 }}>
                 {period.name.replace(/-.*$/, '')} &nbsp;·&nbsp; {fmt12(period.startTime)} – {fmt12(period.endTime)}
               </span>
             </>
           ) : (
             <>
-              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.8rem', color: C.ink, margin: 0 }}>Hall Pass</h1>
-              <span style={{ fontSize: 14, color: C.muted }}>No period selected</span>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '2.15rem', color: C.ink, margin: 0 }}>Hall Pass</h1>
+              <span style={{ fontSize: 17, color: C.muted }}>No period selected</span>
             </>
           )}
         </div>
@@ -306,16 +306,16 @@ export default function Scanner() {
         {/* Center clock — shown on all layouts except iPad landscape */}
         {!isIPadLandscape && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2.4rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2.88rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
+            <span style={{ fontSize: 19, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
           </div>
         )}
 
         {/* Right: settings only — counter is hidden below grid */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName || SCHEDULES[day][start][0]?.name || ''); setPickMaxOut(maxOut); setScreen('settings') }}
-            style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.slate, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 16, color: C.slate, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Schedule
           </button>
         </div>
@@ -386,7 +386,7 @@ export default function Scanner() {
 
         {/* Right: big clock panel — iPad landscape only */}
         {isIPadLandscape && !isLargerThanIPad && (
-          <div style={{ width: 200, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ width: 200, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, gap: 4, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
             {/* Current time */}
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '4.5rem', fontWeight: 700, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
               {clockTime.hm}
@@ -396,7 +396,7 @@ export default function Scanner() {
             </div>
             {/* Countdown — only when period is active */}
             {periodCountdown && (
-              <div style={{ marginTop: 20, textAlign: 'center', padding: '0 16px' }}>
+              <div style={{ marginTop: 12, textAlign: 'center', padding: '0 16px' }}>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Time remaining</div>
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: '-1px' }}>
                   {periodCountdown}

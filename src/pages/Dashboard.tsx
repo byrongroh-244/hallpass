@@ -259,10 +259,13 @@ export default function Dashboard() {
     return periodStudents.map(name => {
       const key = studentKey(day, start, name, period.name)
       const rec = allStudents[key]
+      // hasScanned: student has a Firebase students/ record (scanned today)
+      // OR has a log entry in the last 12h (catches name mismatches from old data)
+      const hasScanned = !!rec || recentlyActiveSet.has(name)
       return {
         name,
         status: (rec?.status ?? 'in') as 'in' | 'out',
-        hasScanned: recentlyActiveSet.has(name),
+        hasScanned,
         outTimestamp: rec?.outTimestamp ?? null,
         lastTrip: lastTripMap[name] ?? null,
         tripCount: tripCountMap[name] ?? 0,
@@ -304,7 +307,7 @@ export default function Dashboard() {
   const avgMs = relevantLogs.length > 0 ? totalMs / relevantLogs.length : 0
 
   // Column count
-  const cols = isWide ? 8 : width >= 1200 ? 7 : width >= 900 ? 6 : 5
+  const cols = isWide ? 7 : width >= 1200 ? 6 : width >= 900 ? 5 : 4
 
   void tick
 
@@ -385,7 +388,7 @@ export default function Dashboard() {
           {studentsOut.length > 0 && (
             <>
               <SectionDivider label="Currently Out" count={studentsOut.length} accent={C.red} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.6rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.75rem' }}>
                 {studentsOut.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut />)}
               </div>
             </>
@@ -394,8 +397,8 @@ export default function Dashboard() {
           {/* Back In */}
           {studentsIn.length > 0 && (
             <>
-              <SectionDivider label={studentsOut.length > 0 ? 'Back In' : 'In Class'} count={studentsIn.length} accent={C.green} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.5rem' }}>
+              <SectionDivider label={studentsOut.length > 0 ? 'Returned' : 'In Class'} count={studentsIn.length} accent={C.green} />
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.75rem' }}>
                 {studentsIn.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut={false} />)}
               </div>
             </>
@@ -405,7 +408,7 @@ export default function Dashboard() {
           {studentsUnknown.length > 0 && (
             <>
               <SectionDivider label="Not Scanned" count={studentsUnknown.length} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.4rem', opacity: 0.7 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.75rem', opacity: 0.7 }}>
                 {studentsUnknown.map(s => <StudentTile key={s.name} s={s} isPeriodActive={isPeriodActive} onAction={manualAction} tick={tick} isOut={false} compact />)}
               </div>
             </>
