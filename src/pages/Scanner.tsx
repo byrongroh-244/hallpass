@@ -37,15 +37,6 @@ function WelcomeBar() {
 }
 
 
-function HomeBtn() {
-  const navigate = useNavigate()
-  return (
-    <button onClick={() => navigate('/')} style={{ flex: 1, padding: 9, borderRadius: 8, background: '#0f172a', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
-      Home
-    </button>
-  )
-}
-
 export default function Scanner() {
   const [day, setDay] = useState<ScheduleDay>(() =>
     (localStorage.getItem('hp_day') as ScheduleDay) ?? 'red')
@@ -58,7 +49,12 @@ export default function Scanner() {
   const [pickDay, setPickDay] = useState<ScheduleDay>('red')
   const [pickStart, setPickStart] = useState<StartType>('regular')
   const [pickPeriod, setPickPeriod] = useState<string>('')
+  const navigate = useNavigate()
   const [errorPopup, setErrorPopup] = useState<{ type: 'maxOut' | 'notActive' } | null>(null)
+  const [pinTarget, setPinTarget] = useState<'home' | 'confirm' | null>(null)
+  const [pinDigits, setPinDigits] = useState(['','','',''])
+  const [pinError, setPinError] = useState(false)
+  const [pickMaxOut, setPickMaxOut] = useState<number>(() => parseInt(localStorage.getItem('hp_maxOut') ?? '5'))
   const [swipeName, setSwipeName] = useState('')
   const [swipeAction, setSwipeAction] = useState<'out'|'in'>('out')
   const [swipeProgress, setSwipeProgress] = useState(0)
@@ -258,48 +254,64 @@ export default function Scanner() {
     return { hm: `${h}:${m}`, ampm }
   })()
 
+  // Period countdown — only when period is active
+  const periodCountdown = (() => {
+    if (!period) return null
+    const now = new Date()
+    const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
+    if (t < period.startTime || t >= period.endTime) return null
+    const [eh, em] = period.endTime.split(':').map(Number)
+    const endMs = (eh * 60 + em) * 60 * 1000
+    const nowMs = (now.getHours() * 60 + now.getMinutes()) * 60 * 1000 + now.getSeconds() * 1000
+    const remaining = endMs - nowMs
+    if (remaining <= 0) return null
+    const totalMins = Math.floor(remaining / 60000)
+    const h = Math.floor(totalMins / 60)
+    const m = totalMins % 60
+    const s = Math.floor((remaining % 60000) / 1000)
+    return h > 0
+      ? `${h}h ${m}m`
+      : m > 0
+        ? `${m}:${String(s).padStart(2,'0')}`
+        : `0:${String(s).padStart(2,'0')}`
+  })()
+
   return (
     <div style={{ minHeight: '100vh', height: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: "'IBM Plex Sans', sans-serif", overflow: 'hidden' }}>
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
 
-        {/* Left: Hall Pass → class name → time stacked */}
+        {/* Left: class name as title, period label + times below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.5rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>Hall Pass</h1>
           {period ? (
             <>
-              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.3 }}>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.8rem', color: C.ink, margin: 0, lineHeight: 1.1 }}>
                 {rosterEntry?.name || period.name.replace(/^[^-]+-/, '')}
-              </span>
-              <span style={{ fontSize: 11, color: C.muted, lineHeight: 1.3 }}>
-                {fmt12(period.startTime)} – {fmt12(period.endTime)}
+              </h1>
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.muted, lineHeight: 1.3 }}>
+                {period.name.replace(/-.*$/, '')} &nbsp;·&nbsp; {fmt12(period.startTime)} – {fmt12(period.endTime)}
               </span>
             </>
           ) : (
-            <span style={{ fontSize: 13, color: C.muted }}>No period selected</span>
+            <>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.8rem', color: C.ink, margin: 0 }}>Hall Pass</h1>
+              <span style={{ fontSize: 14, color: C.muted }}>No period selected</span>
+            </>
           )}
         </div>
 
         {/* Center clock — shown on all layouts except iPad landscape */}
         {!isIPadLandscape && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '2.4rem', fontWeight: 600, color: C.ink }}>{clockTime.hm}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: C.muted }}>{clockTime.ampm}</span>
           </div>
         )}
 
-        {/* Right: out counter + settings */}
+        {/* Right: settings only — counter is hidden below grid */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({length: maxOut}, (_, i) => (
-                <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />
-              ))}
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: outSet.size >= maxOut ? C.red : C.slate }}>{outSet.size}/{maxOut}</span>
-          </div>
-          <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName || SCHEDULES[day][start][0]?.name || ''); setScreen('settings') }}
+          <button onClick={() => { setPickDay(day); setPickStart(start); setPickPeriod(periodName || SCHEDULES[day][start][0]?.name || ''); setPickMaxOut(maxOut); setScreen('settings') }}
             style={{ background: C.cloud, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.slate, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Schedule
@@ -316,11 +328,21 @@ export default function Scanner() {
             <p style={{ textAlign: 'center', padding: '2rem', color: C.slate, fontSize: 14 }}>No period selected. Tap Schedule.</p>
           ) : (
             <>
+              {/* Capacity dots — top of grid near where checked-out students appear */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                {Array.from({length: maxOut}, (_, i) => (
+                  <span key={i} style={{ width: isIPadLandscape ? 10 : 8, height: isIPadLandscape ? 10 : 8, borderRadius: '50%', background: i < outSet.size ? C.red : C.border, display: 'inline-block', transition: 'background 0.2s' }} />
+                ))}
+                {outSet.size > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.red, marginLeft: 2 }}>{outSet.size}/{maxOut}</span>
+                )}
+              </div>
+
               {/* Students Out */}
               {outSet.size > 0 && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Students Out</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, minmax(0, 140px))' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, 1fr)' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
                     {periodStudents.filter(n => outSet.has(n)).map(name => {
                       const elapsed = Date.now() - (outTimes[name] ?? Date.now())
                       return (
@@ -342,7 +364,7 @@ export default function Scanner() {
               {/* In Class */}
               <div>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>Tap your name</div>
-                <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, minmax(0, 140px))' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isIPadLandscape ? 'repeat(5, 1fr)' : isLargerThanIPad ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', gap: isIPadLandscape ? 10 : isLargerThanIPad ? 10 : 8 }}>
                   {periodStudents.filter(n => !outSet.has(n)).map(name => (
                     <button key={name} onClick={() => openSwipe(name)}
                       style={{ border: `1px solid ${C.border}`, background: C.white, borderRadius: 10, padding: isLargerThanIPad ? '20px 10px' : isIPadLandscape ? '12px 8px' : '10px 6px', textAlign: 'center', cursor: 'pointer' }}
@@ -357,21 +379,26 @@ export default function Scanner() {
               </div>
             </>
           )}
+
         </div>
 
         {/* Right: big clock panel — iPad landscape only */}
         {isIPadLandscape && !isLargerThanIPad && (
-          <div style={{ width: 200, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: `1px solid rgba(255,255,255,0.08)` }}>
+          <div style={{ width: 200, background: C.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+            {/* Current time */}
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '4.5rem', fontWeight: 700, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
               {clockTime.hm}
             </div>
             <div style={{ fontSize: 18, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
               {clockTime.ampm}
             </div>
-            {period && (
-              <div style={{ marginTop: 24, textAlign: 'center', padding: '0 16px' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>Period ends</div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{fmt12(period.endTime)}</div>
+            {/* Countdown — only when period is active */}
+            {periodCountdown && (
+              <div style={{ marginTop: 20, textAlign: 'center', padding: '0 16px' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Time remaining</div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: '-1px' }}>
+                  {periodCountdown}
+                </div>
               </div>
             )}
           </div>
@@ -436,7 +463,7 @@ export default function Scanner() {
       {/* Settings */}
       {screen === 'settings' && (
         <Overlay>
-          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isIPadLandscape ? 420 : 340, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: '24px', width: isIPadLandscape ? 420 : 340, maxHeight: '74vh', overflowY: 'auto' }}>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.4rem', color: C.ink, marginBottom: 4 }}>Schedule</h2>
             <p style={{ fontSize: 13, color: C.slate, marginBottom: 20 }}>Select your options then tap Confirm.</p>
 
@@ -464,30 +491,42 @@ export default function Scanner() {
               ))}
             </div>
 
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.slate, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Max Students Out</div>
-            <div style={{ marginBottom: 24 }}>
+            <button onClick={() => {
+              // No PIN — period/day/start changes are free
+              setDay(pickDay); setStart(pickStart); setPeriodName(pickPeriod)
+              localStorage.setItem('hp_day', pickDay); localStorage.setItem('hp_start', pickStart); localStorage.setItem('hp_period', pickPeriod)
+              setScreen('main')
+            }} style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: C.ink, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              Confirm
+            </button>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+              <button onClick={() => setScreen('main')} style={{ flex: 1, padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14 }}>Cancel</button>
+              <button onClick={() => { setPinTarget('home'); setPinDigits(['','','','']); setPinError(false) }} style={{ flex: 1, padding: 9, borderRadius: 8, background: C.ink, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}>Home</button>
+            </div>
+
+            {/* Max Students — below the fold, scroll to reveal */}
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginTop: 24 }}>
+              <div style={{ fontSize: 10, color: C.muted, textAlign: 'center', marginBottom: 16 }}>
+                Admin settings
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Max Students Out</div>
               <select
-                value={maxOut}
-                onChange={e => setMaxOut(parseInt(e.target.value))}
+                value={pickMaxOut}
+                onChange={e => setPickMaxOut(parseInt(e.target.value))}
                 style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 15, color: C.ink, fontFamily: 'inherit', background: C.white, cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
               >
                 {[2,3,4,5,6,7,8].map(n => (
                   <option key={n} value={n}>{n} students</option>
                 ))}
               </select>
-            </div>
-
-            <button onClick={() => {
-              setDay(pickDay); setStart(pickStart); setPeriodName(pickPeriod)
-              localStorage.setItem('hp_day', pickDay); localStorage.setItem('hp_start', pickStart); localStorage.setItem('hp_period', pickPeriod)
-              localStorage.setItem('hp_maxOut', String(maxOut))
-              setScreen('main')
-            }} style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: C.ink, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
-              Confirm
-            </button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setScreen('main')} style={{ flex: 1, padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14 }}>Cancel</button>
-              <HomeBtn />
+              <button onClick={() => {
+                if (pickMaxOut !== maxOut) {
+                  setPinTarget('confirm'); setPinDigits(['','','','']); setPinError(false)
+                }
+              }} disabled={pickMaxOut === maxOut}
+                style={{ width: '100%', marginTop: 10, padding: '9px 0', borderRadius: 8, border: 'none', background: pickMaxOut !== maxOut ? '#667eea' : C.cloud, color: pickMaxOut !== maxOut ? '#fff' : C.muted, fontSize: 14, fontWeight: 600, cursor: pickMaxOut !== maxOut ? 'pointer' : 'default' }}>
+                {pickMaxOut === maxOut ? 'No change' : 'Apply change (PIN required)'}
+              </button>
             </div>
           </div>
         </Overlay>
@@ -532,6 +571,53 @@ export default function Scanner() {
                 Change Schedule
               </button>
             </div>
+          </div>
+        </Overlay>
+      )}
+
+      {/* PIN modal — for home nav and maxOut changes */}
+      {pinTarget !== null && (
+        <Overlay>
+          <div style={{ background: C.white, borderRadius: 16, padding: '28px 24px', width: 300, textAlign: 'center' }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.4rem', color: C.ink, marginBottom: 8 }}>Enter PIN</h2>
+            <p style={{ fontSize: 13, color: C.slate, marginBottom: 20 }}>
+              {pinTarget === 'home' ? 'PIN required to return home' : 'PIN required to change student limit'}
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
+              {pinDigits.map((d, i) => (
+                <input key={i} id={`pin-${i}`} type="password" inputMode="numeric" maxLength={1} value={d}
+                  autoFocus={i === 0}
+                  onChange={e => {
+                    const val = e.target.value.slice(-1).replace(/[^0-9]/g, '')
+                    const next = [...pinDigits]; next[i] = val; setPinDigits(next); setPinError(false)
+                    if (val && i < 3) document.getElementById(`pin-${i+1}`)?.focus()
+                    if (val && i === 3) {
+                      const full = [...pinDigits.slice(0,3), val].join('')
+                      if (full === '0244') {
+                        setPinTarget(null)
+                        if (pinTarget === 'home') {
+                          setScreen('main'); navigate('/')
+                        } else {
+                          setMaxOut(pickMaxOut)
+                          localStorage.setItem('hp_maxOut', String(pickMaxOut))
+                          setScreen('main')
+                        }
+                      } else {
+                        setPinError(true); setPinDigits(['','','',''])
+                        setTimeout(() => document.getElementById('pin-0')?.focus(), 50)
+                      }
+                    }
+                  }}
+                  onKeyDown={e => { if (e.key === 'Backspace' && !pinDigits[i] && i > 0) document.getElementById(`pin-${i-1}`)?.focus() }}
+                  style={{ width: 52, height: 60, fontSize: '1.5rem', textAlign: 'center', border: `2px solid ${pinError ? C.red : C.border}`, borderRadius: 10, fontFamily: 'monospace', outline: 'none', color: C.ink, background: pinError ? C.redBg : C.white }}
+                />
+              ))}
+            </div>
+            {pinError && <p style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>Incorrect PIN</p>}
+            <button onClick={() => { setPinTarget(null); setPinDigits(['','','','']); setPinError(false) }}
+              style={{ width: '100%', padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 14, cursor: 'pointer' }}>
+              Cancel
+            </button>
           </div>
         </Overlay>
       )}
