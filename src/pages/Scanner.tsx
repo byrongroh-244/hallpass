@@ -9,6 +9,8 @@ import { fmt, fmt12, todayStr } from '../utils/schedule'
 import type { ScheduleDay, StartType, Period } from '../types'
 import { useWindowSize } from '../hooks/useWindowSize'
 
+const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN ?? '0244'
+
 const C = {
   bg: '#f8fafc', white: '#ffffff', ink: '#0f172a', slate: '#475569',
   cloud: '#f1f5f9', border: '#e2e8f0',
@@ -600,7 +602,7 @@ export default function Scanner() {
                     if (val && i < 3) document.getElementById(`pin-${i+1}`)?.focus()
                     if (val && i === 3) {
                       const full = [...pinDigits.slice(0,3), val].join('')
-                      if (full === '0244') {
+                      if (full === ADMIN_PIN) {
                         setPinTarget(null)
                         if (pinTarget === 'home') {
                           setScreen('main'); navigate('/')

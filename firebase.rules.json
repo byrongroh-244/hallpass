@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "students": {
+      ".read": true,
+      ".write": true
+    },
+    "logs": {
+      ".read": false,
+      ".write": true
+    },
+    "roster": {
+      ".read": true,
+      ".write": false
+    }
+  }
+}
