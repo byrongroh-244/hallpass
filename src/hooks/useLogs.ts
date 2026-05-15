@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
+import { ref, query, orderByChild, equalTo, get, onValue } from 'firebase/database'
 import { db } from '../firebase/config'
 import type { LogEntry, NormalizedLog, ScheduleDay, StartType } from '../types'
 import { todayStr, extractPeriodNumber } from '../utils/schedule'
@@ -20,32 +20,37 @@ export function useTodayLogs(): LogEntry[] {
 export function useAllLogs(): { logs: NormalizedLog[]; loading: boolean } {
   const [logs, setLogs] = useState<NormalizedLog[]>([])
   const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    const r = ref(db, 'logs')
-    const unsubscribe = onValue(r, snap => {
+    // Use get() for a one-time fetch of all logs
+    get(ref(db, 'logs')).then(snap => {
       const raw = snap.val() as Record<string, LogEntry> | null
       if (!raw) { setLogs([]); setLoading(false); return }
       const normalized: NormalizedLog[] = Object.entries(raw).map(([logId, log]) => {
         const parts = (log.schedule ?? '').split('_')
         return {
-          logId, date: log.date,
-          period: extractPeriodNumber(log.period),
-          periodName: log.period,
-          schedule: log.schedule,
+          logId,
+          date: log.date ?? '',
+          period: extractPeriodNumber(log.period ?? ''),
+          periodName: log.period ?? '',
+          schedule: log.schedule ?? '',
           scheduleDay: (parts[0] ?? 'red') as ScheduleDay,
           startType: (parts[1] ?? 'regular') as StartType,
-          studentName: log.studentName,
+          studentName: log.studentName ?? '',
           action: log.action,
-          timestamp: log.timestamp,
+          timestamp: typeof log.timestamp === 'number' ? log.timestamp : Date.now(),
           duration: log.duration ?? 0,
-          outTime: log.outTime,
-          inTime: log.inTime,
+          outTime: log.outTime ?? null,
+          inTime: log.inTime ?? null,
         }
       })
       setLogs(normalized)
       setLoading(false)
-    }, { onlyOnce: true })
-    return () => unsubscribe()
+    }).catch(() => {
+      setLogs([])
+      setLoading(false)
+    })
   }, [])
+
   return { logs, loading }
 }

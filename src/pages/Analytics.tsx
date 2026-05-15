@@ -112,13 +112,17 @@ export default function Analytics() {
   }, [schedDay])
 
   // All completed trips in selected period + range
-  const filtered = useMemo(() => logs.filter(l =>
-    l.scheduleDay === schedDay &&
-    l.periodName === activePeriodName &&
-    l.date >= range.start && l.date <= range.end &&
-    ['in', 'auto-reset', 'manual-in'].includes(l.action) &&
-    l.duration > 0
-  ), [logs, schedDay, activePeriodName, range])
+  const filtered = useMemo(() => logs.filter(l => {
+    if (l.scheduleDay !== schedDay) return false
+    if (l.date < range.start || l.date > range.end) return false
+    if (!['in', 'auto-reset', 'manual-in'].includes(l.action)) return false
+    if (!l.duration || l.duration <= 0) return false
+    // Match period: compare full period name OR just the number
+    const periodNum = activePeriodName.match(/\d+/)?.[0] ?? ''
+    const logPeriodNum = l.periodName.match(/\d+/)?.[0] ?? ''
+    const sameDay = l.periodName.toLowerCase().startsWith(schedDay === 'red' ? 'red' : 'black')
+    return sameDay && logPeriodNum === periodNum
+  }), [logs, schedDay, activePeriodName, range])
 
   // Per-student stats
   const studentStats = useMemo(() => {
