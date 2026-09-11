@@ -222,7 +222,7 @@ export default function Scanner() {
     setScreen('swipe')
   }
 
-  const commitSwipe = useCallback(async () => {
+  const commitSwipe = useCallback(() => {
     // Read from ref — guaranteed fresh, no stale closure possible
     const { name, action, period: p, day: d, start: s, outTimes: ot } = swipeRef.current
     if (!p || !name) return
@@ -231,16 +231,19 @@ export default function Scanner() {
     const now = Date.now()
     const today = new Date().toISOString().split('T')[0]
 
+    // Dismiss the popup immediately — don't make the UI wait on a Firebase
+    // round-trip (set + push) to close. The writes still happen, just in
+    // the background, so a slow/flaky connection can't freeze the popup.
     if (action === 'out') {
-      await writeStudentOut({ day: d, start: s, name, period: p.name, outTime: now, date: today })
       setOutSet(prev => new Set([...prev, name]))
       setOutTimes(prev => ({ ...prev, [name]: now }))
       setSwipeProgress(0)
       setScreen('main')
+      writeStudentOut({ day: d, start: s, name, period: p.name, outTime: now, date: today })
+        .catch(err => console.error('writeStudentOut failed', err))
     } else {
       const outStart = ot[name] ?? now
       const duration = now - outStart
-      await writeStudentIn({ day: d, start: s, name, period: p.name, outStart, inTime: now, date: today })
       setOutSet(prev => { const n = new Set(prev); n.delete(name); return n })
       setOutTimes(prev => { const n = { ...prev }; delete n[name]; return n })
       setWelcomeName(name)
@@ -248,6 +251,8 @@ export default function Scanner() {
       setSwipeProgress(0)
       setScreen('welcome')
       setTimeout(() => setScreen('main'), 3500)
+      writeStudentIn({ day: d, start: s, name, period: p.name, outStart, inTime: now, date: today })
+        .catch(err => console.error('writeStudentIn failed', err))
     }
   }, [])
 
