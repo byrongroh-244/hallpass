@@ -11,6 +11,13 @@ Chart.register(...registerables)
 
 type TimeRange = '7days' | '14days' | '30days' | 'custom'
 
+// Sanity cap for a single trip's duration. The longest a max-trip setting can be
+// set to is 60 minutes, so anything wildly beyond that (hours, let alone days) is
+// corrupted data — most likely an old "stuck out" record whose reset finally fired
+// after sitting unresolved for a long time — not a real hall pass. Excluding these
+// keeps one bad historical row from wrecking every average on this page.
+const MAX_PLAUSIBLE_TRIP_MS = 3 * 60 * 60 * 1000 // 3 hours
+
 const C = {
   bg: '#f8fafc', white: '#fff', ink: '#0f172a', slate: '#475569',
   muted: '#94a3b8', cloud: '#f1f5f9', border: '#e2e8f0',
@@ -120,6 +127,7 @@ export default function Analytics() {
     if (l.date < range.start || l.date > range.end) return false
     if (!['in', 'auto-reset', 'manual-in'].includes(l.action)) return false
     if (!l.duration || l.duration <= 0) return false
+    if (l.duration > MAX_PLAUSIBLE_TRIP_MS) return false
     // Match period: compare full period name OR just the number
     const periodNum = activePeriodName.match(/\d+/)?.[0] ?? ''
     const logPeriodNum = l.periodName.match(/\d+/)?.[0] ?? ''
@@ -252,7 +260,7 @@ export default function Analytics() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link to="/dashboard" style={{ width: 34, height: 34, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" /></svg>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
             </Link>
             <Link to="/" style={{ width: 34, height: 34, borderRadius: 8, background: C.cloud, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: C.slate }}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>

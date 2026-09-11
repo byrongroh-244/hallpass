@@ -107,3 +107,23 @@ export async function writeAutoReset({ name, period, schedule, studentKey: key, 
     outTime: outStart, inTime: resetTime, duration: resetTime - outStart,
   })
 }
+
+/**
+ * For a student found still marked "out" from a previous calendar day —
+ * an orphaned record (e.g. no one reopened that class's screen for the
+ * rest of that day, over a weekend, or over a break), not a real in-progress
+ * trip. Resets their status immediately and logs it distinctly with
+ * duration: null, so it can never be mistaken for a real multi-hour (or
+ * multi-month) hall pass and skew trip-time analytics.
+ */
+export async function writeStaleReset({ name, period, schedule, studentKey: key, outStart, resetTime, date }: AutoResetParams) {
+  await set(ref(db, `students/${key}`), {
+    name, period, schedule, status: 'in',
+    timestamp: serverTimestamp(), outTimestamp: null,
+  })
+  await push(ref(db, 'logs'), {
+    studentName: name, period, schedule, action: 'stale-reset',
+    timestamp: serverTimestamp(), date,
+    outTime: outStart, inTime: resetTime, duration: null,
+  })
+}

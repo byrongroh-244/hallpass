@@ -26,7 +26,7 @@ export interface LogEntry {
   studentName: string
   period: string
   schedule: string
-  action: 'out' | 'in' | 'manual-in' | 'manual-out' | 'auto-reset'
+  action: 'out' | 'in' | 'manual-in' | 'manual-out' | 'auto-reset' | 'stale-reset'
   timestamp: number
   date: string
   outTime: number | null

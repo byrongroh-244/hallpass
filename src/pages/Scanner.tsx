@@ -4,7 +4,7 @@ import { ref, onValue, off } from 'firebase/database'
 import { db } from '../firebase/config'
 import { SCHEDULES } from '../data/schedules'
 import { useRoster } from '../hooks/useRoster'
-import { scheduleStr, writeStudentOut, writeStudentIn, writeAutoReset } from '../firebase/writes'
+import { scheduleStr, writeStudentOut, writeStudentIn, writeAutoReset, writeStaleReset } from '../firebase/writes'
 import { fmt, fmt12, todayStr } from '../utils/schedule'
 import type { ScheduleDay, StartType, Period } from '../types'
 import { useWindowSize } from '../hooks/useWindowSize'
@@ -116,6 +116,23 @@ export default function Scanner() {
     }
   }, [day, start, periodName])
 
+  // Auto-advance to whichever period is currently active — once a day/start has
+  // been set, the scanner should follow the bell schedule on its own instead of
+  // sitting on a period that already ended until someone reopens Schedule.
+  // Only jumps to periods that actually have a roster (the `periods` list is
+  // already filtered for that), and only moves when the active period changes.
+  useEffect(() => {
+    if (screen === 'firstRun' || screen === 'pickStart') return
+    const now = new Date()
+    const t = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0')
+    const active = periods.find(p => t >= p.startTime && t < p.endTime)
+    if (active && active.name !== periodName) {
+      setPeriodName(active.name)
+      localStorage.setItem('hp_period', active.name)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick])
+
   // Real-time listener — syncs scanner with dashboard and auto-resets at period end
   // Uses a ref so the callback always sees current period/day/start without re-subscribing
   const periodRef = useRef(period)
@@ -137,14 +154,13 @@ export default function Scanner() {
     const p = periodRef.current
     const d = dayRef.current
     const s = startRef.current
-    if (!p) return
 
     const sched = scheduleStr(d, s)
     const all = latestSnapRef.current
 
     const now = new Date()
     const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')
-    const periodOver = t >= p.endTime
+    const periodOver = p ? t >= p.endTime : false
     const nowMs = Date.now()
     const resetTime = nowMs
     const today = todayStr()
@@ -154,17 +170,31 @@ export default function Scanner() {
     const newTimes: Record<string, number> = {}
 
     for (const [key, student] of Object.entries(all)) {
-      if (student.period !== p.name || student.schedule !== sched) continue
-      if (student.status === 'out') {
-        const outStart = student.outTimestamp ?? student.timestamp
-        const tripMs = nowMs - outStart
-        const exceededMaxTrip = tripMs >= maxTripMs
-        if (periodOver || exceededMaxTrip) {
-          await writeAutoReset({ name: student.name, period: student.period, schedule: student.schedule, studentKey: key, outStart, resetTime, date: today })
-        } else {
-          newOut.add(student.name)
-          newTimes[student.name] = outStart
-        }
+      if (student.status !== 'out') continue
+      const outStart = student.outTimestamp ?? student.timestamp
+
+      // Stale = still marked "out" from a previous calendar day. This can only
+      // happen if no screen was ever reopened to that student's exact period
+      // again (over a weekend, a break, or the whole summer) — it's an orphaned
+      // record, not a real in-progress trip. Reset it immediately, from
+      // whichever period happens to be open right now, so it can't sit there
+      // indefinitely and eventually log a multi-day "duration".
+      const outDateStr = new Date(outStart).toISOString().split('T')[0]
+      if (outDateStr !== today) {
+        await writeStaleReset({ name: student.name, period: student.period, schedule: student.schedule, studentKey: key, outStart, resetTime, date: today })
+        continue
+      }
+
+      // Everything below only applies to the period currently open on this screen
+      if (!p || student.period !== p.name || student.schedule !== sched) continue
+
+      const tripMs = nowMs - outStart
+      const exceededMaxTrip = tripMs >= maxTripMs
+      if (periodOver || exceededMaxTrip) {
+        await writeAutoReset({ name: student.name, period: student.period, schedule: student.schedule, studentKey: key, outStart, resetTime, date: today })
+      } else {
+        newOut.add(student.name)
+        newTimes[student.name] = outStart
       }
     }
 

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ref, get } from 'firebase/database'
 import { db } from '../firebase/config'
-import { scheduleStr, studentKey, writeManualAction, writeAutoReset } from '../firebase/writes'
+import { scheduleStr, studentKey, writeManualAction, writeAutoReset, writeStaleReset } from '../firebase/writes'
 import { useStudents } from '../hooks/useStudents'
 import { useTodayLogs } from '../hooks/useLogs'
 import { SCHEDULES } from '../data/schedules'
@@ -210,13 +210,29 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, tick])
 
-  // Auto-reset at period end
+  // Auto-reset at period end, plus a stale-record sweep across every period
   useEffect(() => {
     const id = setInterval(async () => {
-      if (!period || isPeriodActive) return
       const snap = await get(ref(db, 'students'))
       const all = (snap.val() ?? {}) as Record<string, StudentRecord>
       const now = Date.now(); const today = todayStr()
+
+      // Stale sweep — reset any student still marked "out" from a previous
+      // calendar day, regardless of which period/class is currently selected
+      // on this screen. Without this, a student left "out" in a period that
+      // never gets reopened (a break, a summer) stays stuck indefinitely, and
+      // whenever it's finally noticed, the reset logs an impossible
+      // multi-day "duration" that corrupts the analytics averages.
+      await Promise.all(
+        Object.entries(all)
+          .filter(([, s]) => s.status === 'out' && new Date(s.outTimestamp ?? s.timestamp).toISOString().split('T')[0] !== today)
+          .map(([key, s]) => writeStaleReset({
+            name: s.name, period: s.period, schedule: s.schedule,
+            studentKey: key, outStart: s.outTimestamp ?? s.timestamp, resetTime: now, date: today,
+          }))
+      )
+
+      if (!period || isPeriodActive) return
       await Promise.all(
         Object.entries(all)
           .filter(([, s]) => s.status === 'out' && s.schedule === sched && s.period === period.name)
