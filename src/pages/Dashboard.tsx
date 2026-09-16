@@ -210,9 +210,26 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, tick])
 
-  // Auto-reset at period end, plus a stale-record sweep across every period
+  // Auto-reset at period end, plus a stale-record sweep across every period.
+  // Guarded against overlapping itself if one tick's writes are still in
+  // flight when the next 30s tick fires — the writes are also
+  // transaction-guarded in firebase/writes.ts against double-logging if this
+  // screen and Scanner (or another Dashboard tab) both catch the same student
+  // at once, but skipping the overlap here avoids the redundant work too.
+  const resetSweepRunningRef = useRef(false)
   useEffect(() => {
     const id = setInterval(async () => {
+      if (resetSweepRunningRef.current) return
+      resetSweepRunningRef.current = true
+      try {
+        await runResetSweep()
+      } finally {
+        resetSweepRunningRef.current = false
+      }
+    }, 30000)
+    return () => clearInterval(id)
+
+    async function runResetSweep() {
       const snap = await get(ref(db, 'students'))
       const all = (snap.val() ?? {}) as Record<string, StudentRecord>
       const now = Date.now(); const today = todayStr()
@@ -241,8 +258,7 @@ export default function Dashboard() {
             studentKey: key, outStart: s.outTimestamp ?? s.timestamp, resetTime: now, date: today,
           }))
       )
-    }, 30000)
-    return () => clearInterval(id)
+    }
   }, [period, isPeriodActive, sched])
 
   const lastTripMap = useMemo(() => {

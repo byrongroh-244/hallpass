@@ -150,7 +150,25 @@ export default function Scanner() {
   const maxTripMinutesRef = useRef(maxTripMinutes)
   maxTripMinutesRef.current = maxTripMinutes
 
+  // Re-entrancy guard — this check is kicked off both on every Firebase
+  // snapshot (including the echo from its own writes) and once a second, so
+  // without this a slow run (several students needing an awaited reset write
+  // each) can still be mid-flight when the next trigger fires. The writes
+  // themselves are now transaction-guarded against double-logging either way,
+  // but skipping the overlap here avoids doing the redundant work at all.
+  const checkRunningRef = useRef(false)
+
   const runResetCheck = async () => {
+    if (checkRunningRef.current) return
+    checkRunningRef.current = true
+    try {
+      await runResetCheckInner()
+    } finally {
+      checkRunningRef.current = false
+    }
+  }
+
+  const runResetCheckInner = async () => {
     const p = periodRef.current
     const d = dayRef.current
     const s = startRef.current

@@ -3,7 +3,7 @@
  * All student and log writes go through here — one place to change field names,
  * key format, or data shape.
  */
-import { ref, set, push, serverTimestamp } from 'firebase/database'
+import { ref, set, push, serverTimestamp, runTransaction } from 'firebase/database'
 import { db } from './config'
 import type { ScheduleDay, StartType } from '../types'
 
@@ -97,10 +97,24 @@ interface AutoResetParams {
 }
 
 export async function writeAutoReset({ name, period, schedule, studentKey: key, outStart, resetTime, date }: AutoResetParams) {
-  await set(ref(db, `students/${key}`), {
-    name, period, schedule, status: 'in',
-    timestamp: serverTimestamp(), outTimestamp: null,
+  // Auto-reset is triggered by a background poll (every second, and on every
+  // Firebase snapshot) that can legitimately run more than once for the same
+  // student before the first run's write comes back around — either from this
+  // same tab (the poll firing again before the previous check finished) or
+  // from a second screen (Scanner + Dashboard) open on the same period at
+  // once. Guard the actual status flip in a transaction so only whichever
+  // check "wins" logs a trip; a redundant check that loses the race sees the
+  // student is already 'in' and skips logging entirely — otherwise the same
+  // single trip gets written to /logs twice with near-identical durations.
+  let didReset = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tx = await runTransaction(ref(db, `students/${key}`), (current: any) => {
+    if (!current || current.status !== 'out') { didReset = false; return current }
+    didReset = true
+    return { ...current, status: 'in', outTimestamp: null, timestamp: resetTime }
   })
+  if (!tx.committed || !didReset) return
+
   await push(ref(db, 'logs'), {
     studentName: name, period, schedule, action: 'auto-reset',
     timestamp: serverTimestamp(), date,
@@ -117,10 +131,17 @@ export async function writeAutoReset({ name, period, schedule, studentKey: key, 
  * multi-month) hall pass and skew trip-time analytics.
  */
 export async function writeStaleReset({ name, period, schedule, studentKey: key, outStart, resetTime, date }: AutoResetParams) {
-  await set(ref(db, `students/${key}`), {
-    name, period, schedule, status: 'in',
-    timestamp: serverTimestamp(), outTimestamp: null,
+  // Same race as writeAutoReset above — guard the flip in a transaction so an
+  // overlapping check can't log the same stale-reset twice.
+  let didReset = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tx = await runTransaction(ref(db, `students/${key}`), (current: any) => {
+    if (!current || current.status !== 'out') { didReset = false; return current }
+    didReset = true
+    return { ...current, status: 'in', outTimestamp: null, timestamp: resetTime }
   })
+  if (!tx.committed || !didReset) return
+
   await push(ref(db, 'logs'), {
     studentName: name, period, schedule, action: 'stale-reset',
     timestamp: serverTimestamp(), date,
