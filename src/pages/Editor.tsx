@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  savePeriod, saveFullRoster, watchRoster,
+  savePeriod, saveFullRoster, replaceFullRoster, watchRoster,
   parseRosterCSV, parseExcelTSV, deduplicateNames,
 } from '../firebase/roster'
 import type { RosterData, DayKey, PeriodNum, RosterPeriod, ExcelParseResult } from '../firebase/roster'
@@ -69,9 +69,13 @@ function PinEntry({ onSuccess }: { onSuccess: () => void }) {
 
 // ─── Excel upload preview ─────────────────────────────────────────────────────
 
-function ExcelUpload({ onConfirm }: { onConfirm: (data: RosterData) => void }) {
+function ExcelUpload({ roster, onConfirm }: {
+  roster: RosterData
+  onConfirm: (data: RosterData, mode: 'sync' | 'replace') => Promise<void>
+}) {
   const [result, setResult] = useState<ExcelParseResult | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showModePrompt, setShowModePrompt] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,11 +132,12 @@ function ExcelUpload({ onConfirm }: { onConfirm: (data: RosterData) => void }) {
     e.target.value = ''
   }
 
-  const confirm = async () => {
+  const save = async (mode: 'sync' | 'replace') => {
     if (!result) return
     setSaving(true)
-    await onConfirm(result.roster)
+    await onConfirm(result.roster, mode)
     setSaving(false)
+    setShowModePrompt(false)
     setResult(null)
   }
 
@@ -140,6 +145,12 @@ function ExcelUpload({ onConfirm }: { onConfirm: (data: RosterData) => void }) {
     const [day, num] = key.split('_')
     return `${day === 'red' ? 'Red' : 'Black'} Day · Period ${num}`
   }
+
+  // Periods currently saved that this file doesn't mention — what "Replace
+  // Entirely" would permanently delete, shown so that choice is never a surprise.
+  const periodsToRemove = result
+    ? Object.entries(roster).filter(([key]) => !(key in result.roster))
+    : []
 
   return (
     <div style={{ background: C.white, borderRadius: 12, border: `1px solid ${C.border}`, padding: '1.5rem', marginBottom: '1.5rem' }}>
@@ -206,11 +217,57 @@ function ExcelUpload({ onConfirm }: { onConfirm: (data: RosterData) => void }) {
               Cancel
             </button>
             {result.summary.length > 0 && (
-              <button onClick={confirm} disabled={saving}
+              <button onClick={() => setShowModePrompt(true)} disabled={saving}
                 style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: C.ink, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Saving…' : `Confirm — populate ${result.summary.length} periods`}
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Update & Sync vs Replace Entirely */}
+      {showModePrompt && result && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: '1.75rem', width: 440, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', color: C.ink, margin: '0 0 6px' }}>How should this be saved?</h2>
+            <p style={{ fontSize: 13, color: C.slate, margin: '0 0 18px', lineHeight: 1.6 }}>
+              This file has {result.summary.length} period{result.summary.length === 1 ? '' : 's'}. Choose how to apply it to what's already saved.
+            </p>
+
+            <button onClick={() => save('sync')} disabled={saving}
+              style={{ width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 10, border: `1.5px solid ${C.green}`, background: C.greenBg, cursor: 'pointer', marginBottom: 10, opacity: saving ? 0.7 : 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46', marginBottom: 3 }}>Update &amp; Sync <span style={{ fontWeight: 500, fontSize: 11, color: C.slate }}>(recommended)</span></div>
+              <div style={{ fontSize: 12, color: C.slate, lineHeight: 1.5 }}>
+                Adds or updates only the {result.summary.length} period{result.summary.length === 1 ? '' : 's'} in this file. Every other period already saved stays exactly as it is.
+              </div>
+            </button>
+
+            <button onClick={() => save('replace')} disabled={saving}
+              style={{ width: '100%', textAlign: 'left', padding: '14px 16px', borderRadius: 10, border: `1.5px solid ${C.red}`, background: C.redBg, cursor: 'pointer', marginBottom: periodsToRemove.length > 0 ? 10 : 16, opacity: saving ? 0.7 : 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#b91c1c', marginBottom: 3 }}>Replace Entirely</div>
+              <div style={{ fontSize: 12, color: C.slate, lineHeight: 1.5 }}>
+                Deletes every other period and keeps only what's in this file.
+              </div>
+            </button>
+
+            {periodsToRemove.length > 0 && (
+              <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.red, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                  Replace Entirely would permanently delete
+                </div>
+                {periodsToRemove.map(([key, data]) => (
+                  <div key={key} style={{ fontSize: 12, color: C.slate, marginBottom: 2 }}>
+                    {data?.name || 'Unnamed class'} <span style={{ color: C.muted }}>· {dayLabel(key)} · {data?.students?.length ?? 0} students</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={() => setShowModePrompt(false)} disabled={saving}
+              style={{ width: '100%', padding: 9, borderRadius: 8, border: `1px solid ${C.border}`, background: C.cloud, color: C.slate, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -430,8 +487,12 @@ export default function Editor() {
     return watchRoster(setRoster)
   }, [screen])
 
-  const handleFullSave = useCallback(async (data: RosterData) => {
-    await saveFullRoster(data)
+  const handleFullSave = useCallback(async (data: RosterData, mode: 'sync' | 'replace') => {
+    if (mode === 'replace') {
+      await replaceFullRoster(data)
+    } else {
+      await saveFullRoster(data)
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }, [])
@@ -477,7 +538,7 @@ export default function Editor() {
         </div>
 
         {/* Excel upload — primary workflow */}
-        <ExcelUpload onConfirm={handleFullSave} />
+        <ExcelUpload roster={roster} onConfirm={handleFullSave} />
 
         {/* Individual period cards */}
         <div style={{ marginBottom: 8 }}>

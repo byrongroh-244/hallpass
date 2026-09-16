@@ -7,7 +7,7 @@
  *     black_2/ { name: "Geometry", students: [...] }
  *     ...
  */
-import { ref, get, set, onValue } from 'firebase/database'
+import { ref, get, set, update, onValue } from 'firebase/database'
 import { db } from './config'
 
 export type DayKey = 'red' | 'black'
@@ -38,7 +38,28 @@ export async function savePeriod(day: DayKey, period: PeriodNum, data: RosterPer
   await set(ref(db, `roster/${rosterKey(day, period)}`), data)
 }
 
+/**
+ * Writes a batch of periods parsed from an upload (e.g. the Full Year Upload
+ * flow, which may only contain one or a few classes if that's all the file
+ * had). Uses `update()` rather than `set()` so it merges into the existing
+ * roster — only the period keys present in `data` are written — instead of
+ * replacing the whole `roster` node and wiping out every other period that
+ * wasn't in this particular file.
+ */
 export async function saveFullRoster(data: RosterData): Promise<void> {
+  if (Object.keys(data).length === 0) return
+  await update(ref(db, 'roster'), data)
+}
+
+/**
+ * The deliberate, explicit version of the old destructive behavior: replaces
+ * the ENTIRE roster node with only what's in `data`. Any period not present
+ * in `data` is permanently deleted. Only call this after the user has been
+ * shown exactly which existing periods that would wipe out and has
+ * confirmed they want that — this is the "Replace Entirely" choice, as
+ * opposed to the default "Update & Sync" (saveFullRoster) which merges.
+ */
+export async function replaceFullRoster(data: RosterData): Promise<void> {
   await set(ref(db, 'roster'), data)
 }
 
